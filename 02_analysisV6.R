@@ -32,18 +32,18 @@
 
 
 
-#install.packages("PerformanceAnalytics")
-#install.packages("corrplot")
-#install.packages("ggplot2")
-#install.packages("plyr")
-#install.packages("lattice")
-#install.packages("contrast")
-#install.packages("corrplot")
-#install.packages("devtools")
-#install_github("easyGgplot2", "kassambara")
-#install.packages("multcomp")
-#install.packages("phia")
-#install.packages("outliers")
+# install.packages("PerformanceAnalytics")
+# install.packages("corrplot")
+# install.packages("ggplot2")
+# install.packages("plyr")
+# install.packages("lattice")
+# install.packages("contrast")
+# install.packages("corrplot")
+# install.packages("devtools")
+# install_github("easyGgplot2", "kassambara")
+# install.packages("multcomp")
+# install.packages("phia")
+# install.packages("outliers")
 
 
 
@@ -61,11 +61,16 @@ library(easyGgplot2)
 library(outliers)
 
 rm(list = ls())  
- 
-setwd("C://Users/derinald/Desktop/ImageStream Data Set - October 2016/data")
-main_path = "C://Users/derinald/Desktop/ImageStream Data Set - October 2016/"
-input_dir=  paste(main_path, "data", sep="/")
-out_dir=paste(main_path, "R/results/", sep="/")
+
+main_path = getwd()
+
+input_dir=  paste(main_path, "dataExternal/October2016/", sep="/")
+out_dir=paste(main_path, "Results/October2016/", sep="/")
+setwd(input_dir) 
+# setwd("C://Users/derinald/Desktop/ImageStream Data Set - October 2016/data")
+# main_path = "C://Users/derinald/Desktop/ImageStream Data Set - October 2016/"
+# input_dir=  paste(main_path, "data", sep="/")
+# out_dir=paste(main_path, "R/results/", sep="/")
 
 dataset<-read.table(file = "merged.files_and_annotations.txt", header=TRUE)
 
@@ -189,6 +194,7 @@ plot(ds$Median.internalization.score,   ds$Rd.score)
 cor(ds$Median.internalization.score,   ds$Rd.score, use="complete.obs")
 
 ds.excluded.exps<-ds[unlist(ix),]
+## error, what is this variable p
 ds2<- ds[-p,]
 plot(ds2$Median.internalization.score,   ds2$Rd.score)
 cor(ds2$Median.internalization.score,   ds2$Rd.score, use="complete.obs")
@@ -315,6 +321,7 @@ for(j in unique(ds$Visit..Week))
 ###################################################
 #   CORRELATION PLOTS1    ##
 ###################################################
+## error here 
 p=c("Median.internalization.score", "MAD", "Rd.score", "Cell.count", "X..total.cells", "relativePASI")
 ds.t<-dataset[,-c(1,2,3,4,5,6, 16,17,18,20,21,22)]
 #ds.t<-dataset
@@ -410,6 +417,8 @@ histogram(~ Rd.score | Block4, data = ds, as.table = TRUE)
 shapiro.test(ds$relativePASI.log10[1:5000]) 
 shapiro.test(ds$Rd.score[1:5000]) 
 
+
+## error here
 l=list()
 for(i in levels(ds$Block4))
 {
@@ -613,6 +622,7 @@ write.table(Results.Q2Q3, file=paste(out_dir,"Q2Q3_",CC_THRES,".csv", sep=""), c
 ################################################
 ##  QQ PLOT AND HISTOGRAMS                    ##
 ################################################
+## error here
 par(mfrow = c(5,2))
 for(a in 1:length(p))
 {
@@ -651,7 +661,7 @@ homos.q1.relativePASI.p.val<-list()
 homos.q1.PASI90.p.val<-list()
 homos.q1.PASI75.p.val<-list()
         
-
+## error here
 for(cell.type in  levels(ds.tmp$Cell.type))
 {
   for(stimulation in levels(ds.tmp$Stimulation))
@@ -839,6 +849,7 @@ for(a in 1:length(p))
   qqline(p[[a]][,1],distribution=qunif)
 }
 
+# error here
 par(mfrow = c(5,2))
 for(a in 1:10)
 {
@@ -906,7 +917,7 @@ for(i in names(results))
  r.lme.extreme=results[[i]]$lme.extreme 
  r.lm.extreme=results[[i]]$lm.extreme  
 
- 
+ ## error here
  if(class(r.lme.relativePASI) != "try-error")
  {
   pv.lme.relativePASI[c1]<-r.lme.relativePASI$tTable["Rd.score","p-value"] 
@@ -967,8 +978,9 @@ p.lme.relativePASI[c]
 #########################################################
 ## PLOTS RESULTS PASSING THE THRESHOLD      ##
 #########################################################
-output.dir <- "C:/Users/derinald/Desktop/ImageStream Data Set - October 2016/R/output/"
+output.dir <- out_dir
 
+## error here
 if(length(p.lme.relativePASI)>0)
 {
   #sink(paste(output.dir, "lme.relativePASI.p.values", ".txt", sep=""), append=FALSE)
@@ -984,7 +996,7 @@ if(length(p.lme.relativePASI)>0)
   }
   #dev.off()
 }
-
+## error here
 if(length(p.lm.relativePASI)>0)
 {
   #sink(paste(output.dir, "lm.relativePASI.p.values", ".txt", sep=""), append=FALSE)
@@ -1001,6 +1013,7 @@ if(length(p.lm.relativePASI)>0)
   #dev.off()
 }
 
+## error here
 if(length(p.lme.PASI90)>0)
 {
   #sink(paste(output.dir, "p.lme.PASI90.p.values", ".txt", sep=""), append=FALSE)
@@ -1017,6 +1030,7 @@ if(length(p.lme.PASI90)>0)
   #dev.off()
 }
 
+## error here
 if(length(p.lm.PASI90)>0)
 {
   #sink(paste(output.dir, "p.lm.PASI90.p.values", ".txt", sep=""), append=FALSE)
@@ -1033,6 +1047,7 @@ if(length(p.lm.PASI90)>0)
   #dev.off()
 }
 
+## error here
 if(length(p.lme.PASI75)>0)
 {
   #sink(paste(output.dir, "p.lme.PASI75.p.values", ".txt", sep=""), append=FALSE)
@@ -1049,6 +1064,7 @@ if(length(p.lme.PASI75)>0)
   #dev.off()
 }
 
+## error here
 if(length(p.lm.PASI75)>0)
 {
   #sink(paste(output.dir, "p.lm.PASI75.p.values", ".txt", sep=""), append=FALSE)
@@ -1065,6 +1081,7 @@ if(length(p.lm.PASI75)>0)
   #dev.off()
 }
 
+## error here
 if(length(p.lme.extreme)>0)
 {
   #sink(paste(output.dir, "p.lme.extreme.p.values", ".txt", sep=""), append=FALSE)
@@ -1080,6 +1097,7 @@ if(length(p.lme.extreme)>0)
   }
   #dev.off()
 }
+
 
 if(length(p.lm.extreme)>0)
 {
@@ -1141,6 +1159,7 @@ lines(density(pv.lme.PASI90, adjust=2), lty="dotted")   # add another "smoother"
 qqplot(pv.lm.PASI90,runif(100000) )
 qqline(pv.lm.PASI90,distribution=qunif)
 
+## error here
 hist(pv.lm.PASI90, n=20)            # prob=TRUE for probabilities not counts
 lines(density(pv.lm.PASI90))             # add a density estimate with defaults
 lines(density(pv.lm.PASI90, adjust=2), lty="dotted")   # add another "smoother" density
@@ -1192,6 +1211,7 @@ lines(density(pv.lm.extreme, adjust=2, na.rm=TRUE), lty="dotted")   # add anothe
 
 ## FOR EACH BLOCK CHECKS THE DIFFERENCE BETWEEN THE 2 TREATMENTS
 
+## error here
 p=list()
 for (i in unique(ds$Block1))
 {
@@ -1208,6 +1228,7 @@ p.a <- unlist(p, recursive = TRUE, use.names = TRUE)
 
 ix=which(p.a<0.0001)
 
+## error here
 dd<-ds[ds$Block1 %in% ix,]
 
 fig1 = bwplot(dd$Rd.score ~ dd$Treatment | dd$Block1, pch = 16)
@@ -1240,12 +1261,14 @@ ix=which(p.a<0.05)
 
 dd<-ds[ds$Block12 %in% ix,]
 
+## error here
 fig2 = bwplot(dd$PASI90 ~ dd$Rd.score | dd$Block12, pch = 16)
 print(fig2)
 
 
  ######
- 
+
+## error here 
  z4 <- lme(PASI90 ~ Rd.score, random = ~ 1|Block12, data = ds)
 b=summary(z4)
 
@@ -1253,10 +1276,11 @@ b=summary(z4)
 ## FOR EACH BLOCK CHECKS THE CORRELATION BETWEEN relative.PASI(YES/NO) AND RD.SCORE
 #######################################################################################
 
+## error here
 z5 <- lme(relativePASI ~ Rd.score, random = ~ 1|Block12, data = ds)
 b=summary(z5)
 
-
+## error here
 p=list()
 for (i in unique(ds$Block12))
 {
@@ -1278,7 +1302,7 @@ qqline((p.a),distribution=qunif)
 
 names(p.a[p.a<0.05])
 
-
+## error here
 
 dd<-ds[ds$Block12 %in% names(p.a[p.a<0.01]),]
 fig3 = xyplot(dd$Rd.score ~ dd$relativePASI | dd$Block12, pch = 16)
@@ -1286,6 +1310,7 @@ print(fig3)
 
 
 
+## error here
 ###CROSS _CHECK WITH PREVIOUS RESULTS
 check.ix <- which(ds$Block12=="1_NK cells_NF-?B_TNF?_Adalimumab")
 plot(ds$relativePASI[check.ix], ds$Rd.score[check.ix], )

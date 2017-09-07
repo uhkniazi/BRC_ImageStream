@@ -8,11 +8,12 @@ library("PerformanceAnalytics")
 
 rm(list = ls())  
 
-setwd("C://Users/derinald/Desktop/ImageStream Data Set - October 2016/data")
-main_path = "C://Users/derinald/Desktop/ImageStream Data Set - October 2016/"
-input_dir=  paste(main_path, "data", sep="/")
-out_dir=paste(main_path, "R/results", sep="/")
+main_path = getwd()
 
+input_dir=  paste(main_path, "dataExternal/October2016/", sep="/")
+out_dir=paste(main_path, "Results/October2016/", sep="/")
+
+setwd(input_dir)
 file_list <- list.files()
 file_list<-file_list[grepl("^[0-9]+.txt", file_list)]
 
