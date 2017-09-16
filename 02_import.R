@@ -1,12 +1,50 @@
-# Name: 01_import.R
+# Name: 02_import.R
 # Auth: umar.niazi@kcl.ac.uk
-# Date: 14/09/2017
-# Desc: imports and merges the data files
+# Date: 16/09/2017
+# Desc: imports and merge the patient and healthy data files
 
 csFiles = list.files('dataExternal/healthyData/', pattern = 'N\\d+.csv$', full.names = T)
 l = lapply(csFiles, function(x) read.csv(x, header=T, sep=',', na.strings = 'na'))
 dfData = do.call(rbind, l)
 dim(dfData)
+
+dfPatient = read.csv('dataExternal/healthyData/merged.files_and_annotations.csv',
+                     header=T, sep='\t', na.strings = c('na', 'NA'))
+
+table(colnames(dfPatient) %in% colnames(dfData))
+f = colnames(dfPatient)[colnames(dfPatient) %in% colnames(dfData)]
+dfPatient = dfPatient[,f]
+
+## check structure of both data frames
+str(dfData)
+str(dfPatient)
+
+## some levels are coded differently in patient table
+levels(dfData$Transcription.factor)
+levels(dfPatient$Transcription.factor)
+# coded differently correct
+i = sapply(dfPatient$Transcription.factor, function(x) gsub("NF-kB", 
+                                                            replacement =  "NF-κB", x))
+dfPatient$Transcription.factor = factor(i)                                         
+identical(levels(dfData$Transcription.factor), levels(dfPatient$Transcription.factor))
+
+## check next factor
+levels(dfData$Stimulation)
+levels(dfPatient$Stimulation)
+
+i = sapply(dfPatient$Stimulation, function(x) gsub("IFN-gamma", "IFNα", x))
+i = sapply(i, function(x) gsub("TNF-alpha", "TNFα", x))
+i = factor(i)
+identical(levels(dfData$Stimulation), levels(i))
+dfPatient$Stimulation = i
+
+## check next factor
+identical(levels(dfData$Cell.type), levels(dfPatient$Cell.type))
+
+## merge the 2 tables
+dfData = rbind(dfData, dfPatient)
+dfData = droplevels.data.frame(dfData)
+str(dfData)
 
 dfData$Rd.score = as.numeric(dfData$Rd.score)
 f = is.na(dfData$Rd.score)
@@ -16,7 +54,7 @@ dfData = dfData[!f,]
 dfData = droplevels.data.frame(dfData)
 
 ####### data distribution
-pairs(dfData[,-c(1, 2, 3, 11)], pch=20)
+pairs(dfData[,-c(1, 7, 8, 11)], pch=20)
 
 library(lattice)
 library(MASS)
@@ -34,9 +72,14 @@ xyplot(Rd.score ~ Cell.type | Stimulation, data=dfData, type=c('g', 'p'), pch=19
        index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
        par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)))
 
-xyplot(Rd.score ~ Transcription.factor | Stimulation+Cell.type, data=dfData, type=c('g', 'p'), pch=19,
+xyplot(Rd.score ~ Transcription.factor | Stimulation+Cell.type, data=dfData, type=c('g', 'p'), pch=19, groups=Treatment,
        #index.cond = function(x,y) coef(lm(y ~ x))[1], # layout=c(8,2), 
        par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), auto.key = list(columns=3))
+
+stripplot(Rd.score ~ Transcription.factor | Stimulation+Cell.type, data=dfData, type=c('g', 'p'), pch=19, groups=Treatment,
+       #index.cond = function(x,y) coef(lm(y ~ x))[1], # layout=c(8,2), 
+       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), auto.key = list(columns=3))
+
 
 
 ## remove the highest rd score as it may be just an error
@@ -127,6 +170,25 @@ xyplot(Rd.score ~ Stimulation | Cell.type, data=dfData, type=c('g', 'p'), pch=19
           #index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
           par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), main='41 Modules',
        auto.key = list(columns=3))
+
+dfData$fModule = fModule
+
+xyplot(Rd.score ~ Treatment | fModule, data=dfData, type=c('g', 'p'), pch=19, groups=Transcription.factor, cex=0.5,
+       #index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
+       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), main='41 Modules',
+       auto.key = list(columns=3))
+
+xyplot(Rd.score ~ Treatment | fModule, data=dfData, type=c('g', 'p'), pch=19, groups=Visit..Week., cex=0.5,
+       #index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
+       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), main='41 Modules',
+       auto.key = list(columns=3))
+
+xyplot(Rd.score ~ Treatment | fModule, data=dfData[dfData$Visit..Week. == 'Baseline',]
+       , type=c('g', 'p'), pch=19, groups=Transcription.factor, cex=0.5,
+       #index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
+       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), main='41 Modules - baseline',
+       auto.key = list(columns=3))
+
 
 # barchart(Rd.score ~ Stimulation| Cell.type, data=dfData, type=c('g', 'p'), pch=19,
 #          par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), main='41 Modules')
@@ -244,9 +306,9 @@ T1_mean = function(Y){
 } 
 
 ## mChecks
-mChecks = matrix(NA, nrow=5, ncol=1)
+mChecks = matrix(NA, nrow=5, ncol=2)
 rownames(mChecks) = c('Variance', 'Symmetry', 'Max', 'Min', 'Mean')
-colnames(mChecks) = c('Normal')
+colnames(mChecks) = c('Normal', 't')
 ########## simulate 200 test quantities
 mDraws = matrix(NA, nrow = length(ivResp), ncol=200)
 mThetas = matrix(NA, nrow=200, ncol=2)
@@ -302,6 +364,119 @@ lines(x, col='darkgrey', lwd=0.6)
 lines(yresp, lwd=2)
 
 plot(density(ivResp))
+
+########################################3 try second distrubution
+lp3 = function(theta, data){
+  # function to use to use scale parameter
+  ## see here https://grollchristian.wordpress.com/2013/04/30/students-t-location-scale/
+  dt_ls = function(x, df, mu, a) 1/a * dt((x - mu)/a, df)
+  ## likelihood function
+  lf = function(dat, pred){
+    return(log(dt_ls(dat, nu, pred, sigma)))
+  }
+  nu = exp(theta['nu']) ## normality parameter for t distribution
+  sigma = exp(theta['sigma']) # scale parameter for t distribution
+  m = theta[1]
+  d = data$vector # observed data vector
+  if (exp(nu) < 1) return(-Inf)
+  log.lik = sum(lf(d, m))
+  log.prior = 1
+  log.post = log.lik + log.prior
+  return(log.post)
+}
+
+# sanity check for function
+# choose a starting value
+start = c('mu'=mean(ivResp), 'sigma'=log(sd(ivResp)), 'nu'=log(2))
+lp3(start, lData)
+
+op = optim(start, lp3, control = list(fnscale = -1), data=lData)
+op$par
+exp(op$par[2:3])
+
+## try the laplace function from LearnBayes
+fit3 = laplace(lp3, start, lData)
+fit3
+se3 = sqrt(diag(fit3$var))
+
+### lets use the results from laplace and SIR sampling with a t proposal density
+### to take a sample
+tpar = list(m=fit3$mode, var=fit3$var*2, df=3)
+## get a sample directly and using sir (sampling importance resampling with a t proposal density)
+s = sir(lp3, tpar, 1000, lData)
+apply(s, 2, mean)[1]
+exp(apply(s, 2, mean)[c(2,3)])
+mSir = s
+
+# sigSample.op = rnorm(1000, fit3$mode['sigma'], se3['sigma'])
+# nuSample = exp(rnorm(1000, fit3$mode['nu'], se3['nu']))
+sigSample.op = mSir[,'sigma']
+nuSample = exp(mSir[,'nu'])
+# threshold the sample values to above or equal to 1
+nuSample[nuSample < 1] = 1
+
+## generate random samples from alternative t-distribution parameterization
+## see https://grollchristian.wordpress.com/2013/04/30/students-t-location-scale/
+rt_ls <- function(n, df, mu, a) rt(n,df)*a + mu
+# muSample.op = rnorm(1000, mean(lData$vector), exp(sigSample.op)/sqrt(length(lData$vector)))
+muSample.op = mSir[,'mu']
+########## simulate 200 test quantities
+mDraws = matrix(NA, nrow = length(ivResp), ncol=200)
+mThetas = matrix(NA, nrow=200, ncol=3)
+colnames(mThetas) = c('mu', 'sd', 'nu')
+
+for (i in 1:200){
+  p = sample(1:1000, size = 1)
+  s = exp(sigSample.op[p])
+  m = muSample.op[p]
+  n = nuSample[p]
+  mDraws[,i] = rt_ls(length(ivResp), n, m, s)
+  mThetas[i,] = c(m, s, n)
+}
+
+mDraws.t = mDraws
+## get the p-values for the test statistics
+t1 = apply(mDraws, 2, T1_var)
+mChecks['Variance', 2] = getPValue(t1, var(lData$vector))
+
+## test for symmetry
+t1 = sapply(seq_along(1:200), function(x) T1_symmetry(mDraws[,x], mThetas[x,'mu']))
+t2 = sapply(seq_along(1:200), function(x) T1_symmetry(lData$vector, mThetas[x,'mu']))
+plot(t2, t1, pch=20, xlab='Realized Value T(Yobs, Theta)',
+     ylab='Test Value T(Yrep, Theta)', main='Symmetry Check (T Distribution)')
+abline(0,1)
+mChecks['Symmetry', 2] = getPValue(t1, t2) 
+
+## testing for outlier detection i.e. the minimum value show in the histograms earlier
+t1 = apply(mDraws, 2, T1_min)
+t2 = T1_min(lData$vector)
+mChecks['Min', 2] = getPValue(t1, t2)
+
+## maximum value
+t1 = apply(mDraws, 2, T1_max)
+t2 = T1_max(lData$vector)
+mChecks['Max', 2] = getPValue(t1, t2)
+
+## mean value
+t1 = apply(mDraws, 2, T1_mean)
+t2 = T1_mean(lData$vector)
+mChecks['Mean', 2] = getPValue(t1, t2)
+
+mChecks
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ### save the data for use
 dfData$fModule = fModule
