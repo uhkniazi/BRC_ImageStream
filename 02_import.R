@@ -378,9 +378,9 @@ lp3 = function(theta, data){
   sigma = exp(theta['sigma']) # scale parameter for t distribution
   m = theta[1]
   d = data$vector # observed data vector
-  if (exp(nu) < 1) return(-Inf)
+  if (nu < 1) return(-Inf)
   log.lik = sum(lf(d, m))
-  log.prior = 1
+  log.prior = dcauchy(sigma, 0, 2.5, log=T) + dunif(nu, 1, 4, log = T) 
   log.post = log.lik + log.prior
   return(log.post)
 }
