@@ -34,6 +34,11 @@ xyplot(Rd.score ~ Cell.type | Stimulation, data=dfData, type=c('g', 'p'), pch=19
        index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
        par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)))
 
+xyplot(Rd.score ~ Transcription.factor | Stimulation+Cell.type, data=dfData, type=c('g', 'p'), pch=19,
+       #index.cond = function(x,y) coef(lm(y ~ x))[1], # layout=c(8,2), 
+       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), auto.key = list(columns=3))
+
+
 ## remove the highest rd score as it may be just an error
 f = which(dfData$Rd.score > 4)
 dfData[f,]
@@ -66,31 +71,36 @@ densityplot(~ dfData$Rd.score | f)
 dfData = dfData[dfData$Cell.count.grps != '0',]
 
 xyplot(Rd.score ~ Stimulation | Cell.type, data=dfData, type=c('g', 'p'), pch=19, groups=Transcription.factor,
-       index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
+       #index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
        par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), auto.key = list(columns=3))
 
-xyplot(Rd.score ~ Transcription.factor | Cell.type, data=dfData, type=c('g', 'p'), pch=19,
-       index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
-       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)))
+xyplot(Rd.score ~ Transcription.factor | Stimulation+Cell.type, data=dfData, type=c('g', 'p'), pch=19, cex=0.5,
+       #index.cond = function(x,y) coef(lm(y ~ x))[1], # layout=c(8,2), 
+       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), auto.key = list(columns=3))
 
 
 xyplot(Rd.score ~ Cell.type | Stimulation, data=dfData, type=c('g', 'p'), pch=19, groups=Transcription.factor,
-       index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
+       #index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
        par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), auto.key = list(columns=3))
 
 # define the modules as used by previous analyst
 # module is cell type + stimulation
 xyplot(Rd.score ~ Cell.type, data=dfData, type=c('g', 'p'), pch=19, groups=Stimulation,
-       index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
+       #index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
        par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), auto.key = list(columns=5))
 
 stripplot(Rd.score ~ Stimulation | Cell.type, data=dfData, type=c('g', 'p'), pch=19,
-       index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
+       #index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
        par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), main='90 Modules')
 
 barchart(Rd.score ~ Stimulation| Cell.type, data=dfData, type=c('g', 'p'), pch=19,
-          index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
+          #index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
           par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), main='90 Modules')
+
+xyplot(Rd.score ~ Transcription.factor | Stimulation+Cell.type, data=dfData, type=c('g', 'p'), pch=19, cex=0.3,
+       #index.cond = function(x,y) coef(lm(y ~ x))[1], # layout=c(8,2), 
+       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), auto.key = list(columns=3))
+
 
 ## drop modules with RD score < 0.3
 fModule = factor(dfData$Cell.type:dfData$Stimulation)
@@ -109,12 +119,17 @@ dfData = droplevels.data.frame(dfData)
 fModule = factor(dfData$Cell.type:dfData$Stimulation)
 nlevels(fModule)
 
-stripplot(Rd.score ~ Stimulation | Cell.type, data=dfData, type=c('g', 'p'), pch=19,
-          #index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
-          par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), main='41 Modules')
+xyplot(Rd.score ~ Transcription.factor | Stimulation+Cell.type, data=dfData, type=c('g', 'p'), pch=19, cex=0.3,
+       #index.cond = function(x,y) coef(lm(y ~ x))[1], # layout=c(8,2), 
+       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), auto.key = list(columns=3))
 
-barchart(Rd.score ~ Stimulation| Cell.type, data=dfData, type=c('g', 'p'), pch=19,
-         par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), main='41 Modules')
+xyplot(Rd.score ~ Stimulation | Cell.type, data=dfData, type=c('g', 'p'), pch=19, groups=Transcription.factor, cex=0.5,
+          #index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
+          par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), main='41 Modules',
+       auto.key = list(columns=3))
+
+# barchart(Rd.score ~ Stimulation| Cell.type, data=dfData, type=c('g', 'p'), pch=19,
+#          par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), main='41 Modules')
 
 # check data distribution
 x = na.omit(dfData$Rd.score)
@@ -161,20 +176,29 @@ se
 fit$mode+1.96*se
 fit$mode-1.96*se
 
+### lets use the results from laplace and SIR sampling with a t proposal density
+### to take a sample
+tpar = list(m=fit$mode, var=fit$var*2, df=3)
+## get a sample directly and using sir (sampling importance resampling with a t proposal density)
+s = sir(lp, tpar, 1000, lData)
+apply(s, 2, mean)[1]
+exp(apply(s, 2, mean)[2])
+mSir = s
+
 ## lets take a sample from this
-sigSample.op = rnorm(1000, fit$mode['sigma'], se['sigma'])
-muSample.op = rnorm(1000, mean(lData$vector), exp(sigSample.op)/sqrt(length(lData$vector)))
-# second way of taking the sample
-muSample2.op = rnorm(1000, fit$mode['mu'], se['mu'])
+sigSample.op = mSir[,'sigma']
+muSample.op = mSir[,'mu'] #rnorm(1000, mean(lData$vector), exp(sigSample.op)/sqrt(length(lData$vector)))
+# # second way of taking the sample
+# muSample2.op = rnorm(1000, fit$mode['mu'], se['mu'])
 
 fit$mode['mu']-1.96*se['mu']; fit$mode['mu']+1.96*se['mu']
 quantile(muSample.op, c(0.025, 0.975))
 
-### if we look at the histogram of the 66 measurements
-hist(ivResp, xlab='RD Score', main='', breaks=50)
+### if we look at the histogram of the measurements
+hist(ivResp, xlab='RD Score', main='', breaks=10)
 
 ########### Model checking
-## sample 66 values, 20 times, each time drawing a fresh draw of sd and mean from the joint posterior
+## sample X values, 20 times, each time drawing a fresh draw of sd and mean from the joint posterior
 mDraws = matrix(NA, nrow = length(ivResp), ncol=20)
 
 for (i in 1:20){
@@ -220,9 +244,9 @@ T1_mean = function(Y){
 } 
 
 ## mChecks
-mChecks = matrix(NA, nrow=5, ncol=3)
+mChecks = matrix(NA, nrow=5, ncol=1)
 rownames(mChecks) = c('Variance', 'Symmetry', 'Max', 'Min', 'Mean')
-colnames(mChecks) = c('Normal', 'NormalCont', 'T')
+colnames(mChecks) = c('Normal')
 ########## simulate 200 test quantities
 mDraws = matrix(NA, nrow = length(ivResp), ncol=200)
 mThetas = matrix(NA, nrow=200, ncol=2)
@@ -239,7 +263,7 @@ for (i in 1:200){
 mDraws.norm = mDraws
 ### get the test quantity from the test function
 t1 = apply(mDraws, 2, T1_var)
-hist(t1, xlab='Test Quantity - Variance (Normal Model)', main='', breaks=50)
+hist(t1, xlab='Test Quantity - Variance (Normal Model)', main='', breaks=10)
 abline(v = var(lData$vector), lwd=2)
 mChecks['Variance', 1] = getPValue(t1, var(lData$vector))
 
@@ -265,15 +289,20 @@ t1 = apply(mDraws, 2, T1_mean)
 t2 = T1_mean(lData$vector)
 mChecks['Mean', 1] = getPValue(t1, t2)
 
+mChecks
+
 ## normal model seems appropriate here
 yresp = density(ivResp)
 yresp$y = yresp$y/max(yresp$y)
-plot(yresp, xlab='', main='Fitted distribution', ylab='scaled density', lwd=2)
+plot(yresp, xlab='', main='Fitted distribution', ylab='scaled density', lwd=2, ylim=c(0, 1.1))
 temp = apply(mDraws, 2, function(x) {x = density(x)
-x$y = x$y/max(x$y)
+#x$y = x$y/max(x$y)
 lines(x, col='darkgrey', lwd=0.6)
 })
 lines(yresp, lwd=2)
 
 plot(density(ivResp))
 
+### save the data for use
+dfData$fModule = fModule
+write.csv(dfData, file='dataExternal/healthyData/importedHealthy.csv', row.names = F)
