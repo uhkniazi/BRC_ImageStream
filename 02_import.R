@@ -203,7 +203,9 @@ qqPlot(x, distribution = 'norm')
 library(LearnBayes)
 set.seed(123) # for replication
 
-ivResp = dfData$Rd.score
+ivResp = dfData$Rd.score#[dfData$Visit..Week. == 'Baseline']
+ivResp = ivResp+abs(min(ivResp))+1
+ivResp = log(ivResp)
 summary(ivResp)
 sd(ivResp)
 
@@ -380,7 +382,7 @@ lp3 = function(theta, data){
   d = data$vector # observed data vector
   if (nu < 1) return(-Inf)
   log.lik = sum(lf(d, m))
-  log.prior = dcauchy(sigma, 0, 2.5, log=T) + dunif(nu, 1, 4, log = T) 
+  log.prior = dcauchy(sigma, 0, 2.5, log=T) + dcauchy(nu, 0, 1, log=T)
   log.post = log.lik + log.prior
   return(log.post)
 }
@@ -464,6 +466,13 @@ mChecks['Mean', 2] = getPValue(t1, t2)
 
 mChecks
 
+yresp = density(ivResp)
+plot(yresp, xlab='', main='Fitted distribution', ylab='density', lwd=2, ylim=c(0, 2.4))
+temp = apply(mDraws.t, 2, function(x) {x = density(x)
+#x$y = x$y/max(x$y)
+lines(x, col='red', lwd=0.6)
+})
+lines(yresp, lwd=2)
 
 
 
