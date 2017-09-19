@@ -7,6 +7,9 @@ data {
   int<lower=1> Ncol; // total number of columns in model matrix
   matrix[Ntotal, Ncol] X; // model matrix
   real y[Ntotal]; // response variable normally distributed
+  // additional parameters
+  real gammaShape; // hyperparameters for the gamma distribution 
+  real gammaRate;
 }
 // transformed data {
   // }
@@ -18,6 +21,7 @@ parameters {
   real<lower=0> sigmaPop; // population standard deviation
   vector[Nclusters1] rGroupsJitter1; // number of random jitters for each level of cluster/group 1
   vector[Nclusters2] rGroupsJitter2; // number of random jitters for each level of cluster/group 2
+  real<lower=1> nu; // normality parameter for t distribution or degree of freedom 
 }
 transformed parameters {
   vector[Ntotal] mu; // fitted values from linear predictor
@@ -35,14 +39,14 @@ transformed parameters {
   mu = mu + rNewIntercept;
 }
 model {
-  // using weak priors to start with
-  sigmaRan1 ~ cauchy(0, 2.5);
-  sigmaRan2 ~ cauchy(0, 2.5);
-  sigmaPop ~ cauchy(0, 2.5);
-  betas ~ cauchy(0, 10);//prior for the betas
+  nu ~ exponential(1/29.0);
+  sigmaRan1 ~ gamma(gammaShape, gammaRate);
+  sigmaRan2 ~ gamma(gammaShape, gammaRate);
+  sigmaPop ~ gamma(gammaShape, gammaRate);
+  betas ~ gamma(gammaShape, gammaRate);
   // random effects sample
   rGroupsJitter1 ~ normal(0, sigmaRan1);
   rGroupsJitter2 ~ normal(0, sigmaRan2);
   // likelihood function
-  y ~ normal(mu, sigmaPop);
+  y ~ student_t(nu, mu, sigmaPop);
 }
