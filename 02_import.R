@@ -82,7 +82,7 @@ stripplot(Rd.score ~ Transcription.factor | Stimulation+Cell.type, data=dfData, 
 
 
 
-## remove the highest rd score as it may be just an error
+## remove the highest rd scores as it may be just an error
 f = which(dfData$Rd.score > 4)
 dfData[f,]
 ## cell count also very low here
@@ -145,7 +145,7 @@ xyplot(Rd.score ~ Transcription.factor | Stimulation+Cell.type, data=dfData, typ
        par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), auto.key = list(columns=3))
 
 
-## drop modules with RD score < 0.3
+## drop modules with average RD score < 0.3
 fModule = factor(dfData$Cell.type:dfData$Stimulation)
 nlevels(fModule)
 i = tapply(dfData$Rd.score, fModule, mean)
@@ -193,17 +193,12 @@ xyplot(Rd.score ~ Treatment | fModule, data=dfData[dfData$Visit..Week. == 'Basel
 # barchart(Rd.score ~ Stimulation| Cell.type, data=dfData, type=c('g', 'p'), pch=19,
 #          par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), main='41 Modules')
 
-# check data distribution
-x = na.omit(dfData$Rd.score)
-hist(x)
-fitdistr(x, densfun = 'normal')
-qqPlot(x, distribution = 'norm')
 
 ########################################################
 library(LearnBayes)
 set.seed(123) # for replication
 
-ivResp = dfData$Rd.score#[dfData$Visit..Week. == 'Baseline']
+ivResp = dfData$Rd.score
 ivResp = ivResp+abs(min(ivResp))+1
 ivResp = log(ivResp)
 summary(ivResp)
@@ -382,7 +377,7 @@ lp3 = function(theta, data){
   d = data$vector # observed data vector
   if (nu < 1) return(-Inf)
   log.lik = sum(lf(d, m))
-  log.prior = dcauchy(sigma, 0, 2.5, log=T) + dcauchy(nu, 0, 1, log=T)
+  log.prior = dcauchy(sigma, 0, 2.5, log=T) + dexp(nu, 1/29, log=T)
   log.post = log.lik + log.prior
   return(log.post)
 }
@@ -474,19 +469,41 @@ lines(x, col='red', lwd=0.6)
 })
 lines(yresp, lwd=2)
 
+############## generate an MCMC sample using stan
+library(rstan)
+stanDso = rstan::stan_model(file='fitTparam.stan')
 
+lStanData = list(Ntotal=length(ivResp), y=ivResp)
 
+fit.stan = sampling(stanDso, data=lStanData, iter=5000, chains=2, pars=c('mu', 'sig', 'nu'))
+print(fit.stan)
+m = extract(fit.stan)
+muSample.op = m$mu
+sigSample.op = m$sig
+nuSample = m$nu
 
+mDraws = matrix(NA, nrow = length(ivResp), ncol=200)
+mThetas = matrix(NA, nrow=200, ncol=3)
+colnames(mThetas) = c('mu', 'sd', 'nu')
 
+for (i in 1:200){
+  p = sample(1:5000, size = 1)
+  s = sigSample.op[p]
+  m = muSample.op[p]
+  n = nuSample[p]
+  mDraws[,i] = rt_ls(length(ivResp), n, m, s)
+  mThetas[i,] = c(m, s, n)
+}
 
+mDraws.t = mDraws
 
-
-
-
-
-
-
+yresp = density(ivResp)
+plot(yresp, xlab='', main='Fitted distribution', ylab='density', lwd=2, ylim=c(0, 2.4))
+temp = apply(mDraws.t, 2, function(x) {x = density(x)
+#x$y = x$y/max(x$y)
+lines(x, col='red', lwd=0.6)
+})
+lines(yresp, lwd=2)
 
 ### save the data for use
-dfData$fModule = fModule
-write.csv(dfData, file='dataExternal/healthyData/importedHealthy.csv', row.names = F)
+write.csv(dfData, file='dataExternal/healthyData/mergedData.csv', row.names = F)
