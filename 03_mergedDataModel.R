@@ -18,6 +18,28 @@ ivResp = dfData$Rd.score
 ivResp = ivResp+abs(min(ivResp))+1
 ivResp = log(ivResp)
 dfData$Rd.score = ivResp
+dfData = dfData[dfData$Visit..Week. == 'Baseline',]
+dfData = droplevels.data.frame(dfData)
+dfData$Treatment = relevel(dfData$Treatment, 'None')
+str(dfData)
+
+xtabs( ~ Stimulation + Transcription.factor, data=dfData)
+xtabs( ~ fModule + Transcription.factor, data=dfData)
+
+
+library(lme4)
+fit.lme1 = lmer(Rd.score ~ Treatment + (1 | Patient.ID) + (1 | fModule) + (1 | Transcription.factor), data=dfData, REML=F)
+summary(fit.lme)
+
+fit.lme2 = lmer(Rd.score ~ Treatment + fModule + (1 | Patient.ID) +  (1 | Transcription.factor), data=dfData, REML=F)
+summary(fit.lme2)
+
+fit.lme3 = lmer(Rd.score ~ Treatment:fModule + (1 | Patient.ID), data=dfData, REML=F)
+summary(fit.lme3)
+
+fit.lme4 = lmer(Rd.score ~ Treatment+fModule+Treatment:fModule + (1 | Patient.ID), data=dfData, REML=F)
+summary(fit.lme4)
+
 
 library(rstan)
 rstan_options(auto_write = TRUE)
@@ -25,13 +47,20 @@ options(mc.cores = parallel::detectCores())
 stanDso = rstan::stan_model(file='tResponseRandomEffects.stan')
 
 l = gammaShRaFromModeSD(sd(dfData$Rd.score), 2*sd(dfData$Rd.score))
-m = model.matrix(Rd.score ~ Treatment, data=dfData)
+m = model.matrix(Rd.score ~ Treatment+fModule+Treatment:fModule, data=dfData)
 
-lStanData = list(Ntotal=nrow(dfData), Nclusters1=nlevels(dfData$Patient.ID), Nclusters2=nlevels(dfData$fModule), 
-                 NgroupMap1=as.numeric(dfData$Patient.ID), NgroupMap2=as.numeric(dfData$fModule), Ncol=ncol(m), X=m,
+lStanData = list(Ntotal=nrow(dfData), Nclusters1=nlevels(dfData$Patient.ID), #Nclusters2=nlevels(dfData$fModule), 
+                 NgroupMap1=as.numeric(dfData$Patient.ID), #NgroupMap2=as.numeric(dfData$fModule), 
+                 Ncol=ncol(m), X=m,
                  y=dfData$Rd.score, gammaShape=l$shape, gammaRate=l$rate)
 
-fit.stan = sampling(stanDso, data=lStanData, iter=1000, chains=4, pars=c('betas', 'sigmaRan1', 'sigmaRan2',
-                                                                          'sigmaPop', 'rGroupsJitter1', 'rGroupsJitter2'),
-                    cores=4)#, control=list(adapt_delta=0.99, max_treedepth = 15))
+fit.stan = sampling(stanDso, data=lStanData, iter=2000, chains=2, pars=c('betas', 'sigmaRan1', #'sigmaRan2',
+                                                                          'sigmaPop','nu', 'rGroupsJitter1'), #'rGroupsJitter2'),
+                    cores=2)#, control=list(adapt_delta=0.99, max_treedepth = 15))
 print(fit.stan, digits=3)
+
+
+
+
+
+
