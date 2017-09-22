@@ -3,6 +3,26 @@
 # Date: 22/06/2017
 # Desc: linear regression, using fixed and random effects (2 level model)
 
+getPValue = function(Trep, Tobs){
+  left = sum(Trep <= Tobs)/length(Trep)
+  right = sum(Trep >= Tobs)/length(Trep)
+  return(min(left, right))
+}
+
+
+getDifference = function(ivData, ivBaseline){
+  stopifnot(length(ivData) == length(ivBaseline))
+  # get the difference vector
+  d = ivData - ivBaseline
+  # get the z value
+  z = mean(d)/sd(d)
+  # get 2 sided p-value
+  p = pnorm(-abs(mean(d)/sd(d)))*2
+  return(list(z=z, p=p))
+}
+
+
+
 
 ## following some guideline from https://rpubs.com/kaz_yos/stan-multi-1
 ## Simulate the data according to guide from the link above
