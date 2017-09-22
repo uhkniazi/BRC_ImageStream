@@ -15,15 +15,17 @@ gammaShRaFromModeSD = function( mode , sd ) {
 
 dfData = read.csv('dataExternal/healthyData/mergedData.csv', header=T)
 
-## use only baseline 
+## use only baseline samples and merge 2 types of treated into one group
 dfData = dfData[dfData$Visit..Week. == 'Baseline',]
 dfData = droplevels.data.frame(dfData)
 t = as.character(dfData$Treatment)
-t[t != 'None'] = 'Treated'
+t[t != 'None'] = 'Patient'
+t[t == 'None'] = 'Healthy'
 dfData$Treatment = factor(t)
 dfData$Modules = factor(dfData$fModule:dfData$Treatment)
-table(dfData$Modules)
+nlevels(dfData$Modules); table(dfData$Modules)
 dfData = dfData[order(dfData$Patient.ID, dfData$Modules),]
+dfData = droplevels.data.frame(dfData)
 str(dfData)
 
 ## make a plot of the raw data
@@ -74,12 +76,49 @@ fit.stan = sampling(stanDso, data=lStanData, iter=2000, chains=4, pars=c('betas'
                     cores=4)#, control=list(adapt_delta=0.99, max_treedepth = 15))
 print(fit.stan, c('betas', 'sigmaRan1', 'sigmaRan2', 'sigmaPop', 'nu'), digits=3)
 
-## get the coefficient of interest - Modules in our case
+## get the coefficient of interest - Modules in our case from the random coefficients section
 mModules = extract(fit.stan)$rGroupsJitter2
 dim(mModules)
+## get the intercept at population level
 iIntercept = extract(fit.stan)$betas[,1]
-## add the intercept to each random effect variable
+## add the intercept to each random effect variable, to get the full coefficient
 mModules = sweep(mModules, 1, iIntercept, '+')
+
+## function to calculate statistics for differences between coefficients
+getDifference = function(ivData, ivBaseline){
+  stopifnot(length(ivData) == length(ivBaseline))
+  # get the difference vector
+  d = ivData - ivBaseline
+  # get the z value
+  z = mean(d)/sd(d)
+  # get 2 sided p-value
+  p = pnorm(-abs(mean(d)/sd(d)))*2
+  return(list(z=z, p=p))
+}
+
+## split the data into the comparisons required
+d = data.frame(cols=1:ncol(mModules), mods=levels(dfData$Modules))
+## split this factor into sub factors
+f = strsplit(as.character(d$mods), ':')
+d = cbind(d, do.call(rbind, f))
+colnames(d) = c(colnames(d)[1:2], c('cells', 'stimulation', 'treatment'))
+d$split = factor(d$cells:d$stimulation)
+
+## this data frame is a mapper for each required comparison
+ldfMap = split(d, f = d$split)
+
+## get a p-value for each comparison
+l = lapply(ldfMap, function(x) {
+  c = x$cols
+  d = getDifference(ivData = mModules[,c[2]], ivBaseline = mModules[,c[1]])
+  r = data.frame(cells= as.character(x$cells[1]), stimulation=as.character(x$stimulation[1]), coef.healthy=mean(mModules[,c[1]]), 
+        coef.patient=mean(mModules[,c[2]]), zscore=d$z, pvalue=d$p)
+  return(format(r, digi=3))
+})
+
+dfResults = do.call(rbind, l)
+dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
+write.csv(dfResults, file='Results/mergedDataResults.csv', row.names = F)
 
 ## make the plots for the raw data and fitted data
 ## format data for plotting

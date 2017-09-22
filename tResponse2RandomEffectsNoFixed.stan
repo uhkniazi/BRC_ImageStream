@@ -44,7 +44,7 @@ model {
   sigmaRan1 ~ gamma(gammaShape, gammaRate);
   sigmaRan2 ~ gamma(gammaShape, gammaRate);
   sigmaPop ~ gamma(gammaShape, gammaRate);
-  betas ~ cauchy(0, 2.5);
+  betas ~ cauchy(0, 10);
   // random effects sample
   rGroupsJitter1 ~ normal(0, sigmaRan1);
   rGroupsJitter2 ~ normal(0, sigmaRan2);
