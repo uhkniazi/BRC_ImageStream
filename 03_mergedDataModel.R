@@ -18,7 +18,9 @@ dfData = read.csv('dataExternal/healthyData/mergedData.csv', header=T)
 ## use only baseline 
 dfData = dfData[dfData$Visit..Week. == 'Baseline',]
 dfData = droplevels.data.frame(dfData)
-dfData$Treatment = relevel(dfData$Treatment, 'None')
+t = as.character(dfData$Treatment)
+t[t != 'None'] = 'Treated'
+dfData$Treatment = factor(t)
 dfData$Modules = factor(dfData$fModule:dfData$Treatment)
 table(dfData$Modules)
 dfData = dfData[order(dfData$Patient.ID, dfData$Modules),]
