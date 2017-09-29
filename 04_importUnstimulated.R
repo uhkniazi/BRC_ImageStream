@@ -147,8 +147,8 @@ library(LearnBayes)
 set.seed(123) # for replication
 
 ivResp = dfData$Median.internalization.score
-ivResp = ivResp+abs(min(ivResp))+0.01
-ivResp = log(ivResp)
+ivResp = ivResp+abs(min(ivResp))+0.1
+#ivResp = log(ivResp)
 summary(ivResp)
 sd(ivResp)
 
@@ -388,41 +388,6 @@ lines(x, col='darkgrey', lwd=0.6)
 })
 lines(yresp, lwd=2)
 
-############## generate an MCMC sample using stan
-library(rstan)
-stanDso = rstan::stan_model(file='fitTparam.stan')
-
-lStanData = list(Ntotal=length(ivResp), y=ivResp)
-
-fit.stan = sampling(stanDso, data=lStanData, iter=5000, chains=2, pars=c('mu', 'sig', 'nu'))
-print(fit.stan)
-m = extract(fit.stan)
-muSample.op = m$mu
-sigSample.op = m$sig
-nuSample = m$nu
-
-mDraws = matrix(NA, nrow = length(ivResp), ncol=200)
-mThetas = matrix(NA, nrow=200, ncol=3)
-colnames(mThetas) = c('mu', 'sd', 'nu')
-
-for (i in 1:200){
-  p = sample(1:5000, size = 1)
-  s = sigSample.op[p]
-  m = muSample.op[p]
-  n = nuSample[p]
-  mDraws[,i] = rt_ls(length(ivResp), n, m, s)
-  mThetas[i,] = c(m, s, n)
-}
-
-mDraws.t = mDraws
-
-yresp = density(ivResp)
-plot(yresp, xlab='', main='Fitted distribution', ylab='density', lwd=2, ylim=c(0, 2.4))
-temp = apply(mDraws.t, 2, function(x) {x = density(x)
-#x$y = x$y/max(x$y)
-lines(x, col='red', lwd=0.6)
-})
-lines(yresp, lwd=2)
 
 ### save the data for use
-write.csv(dfData, file='dataExternal/healthyData/mergedData.csv', row.names = F)
+write.csv(dfData, file='dataExternal/healthyData/mergedDataUnstimulated.csv', row.names = F)
