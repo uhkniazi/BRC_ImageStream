@@ -66,13 +66,13 @@ lStanData = list(Ntotal=nrow(dfData), Nclusters1=nlevels(dfData$Patient.ID), Ncl
                  Ncol=1, #X=m,
                  y=dfData$Median.internalization.score, gammaShape=l$shape, gammaRate=l$rate)
 
-fit.stan = sampling(stanDso, data=lStanData, iter=1000, chains=4, pars=c('betas', 'sigmaRan1', 'sigmaRan2',
+fit.stan = sampling(stanDso, data=lStanData, iter=4000, chains=4, pars=c('betas', 'sigmaRan1', 'sigmaRan2',
                                                                          'sigmaPop','alpha', 'beta', 'mu', 'rGroupsJitter1', 'rGroupsJitter2'),
                     cores=4)#, control=list(adapt_delta=0.99, max_treedepth = 15))
 print(fit.stan, c('betas', 'sigmaRan1', 'sigmaRan2', 'sigmaPop'), digits=3)
 
 ## get the coefficient of interest - Modules in our case from the random coefficients section
-mModules = extract(fit.stan)$rGroupsJitter1
+mModules = extract(fit.stan)$rGroupsJitter2
 dim(mModules)
 ## get the intercept at population level
 iIntercept = extract(fit.stan)$betas[,1]
@@ -120,10 +120,10 @@ write.csv(dfResults, file='Results/mergedDataResultsUnstimulated.csv', row.names
 d2 = dfData[,c('Median.internalization.score', 'Modules')]
 f = strsplit(as.character(d2$Modules), ':')
 d2 = cbind(d2, do.call(rbind, f))
-colnames(d2) = c(colnames(d2)[1:2], c('cells', 'stimulation', 'treatment'))
+colnames(d2) = c(colnames(d2)[1:2], c('cells', 'transcription.factor', 'treatment'))
 
-dotplot(treatment ~ Median.internalization.score | cells:stimulation, data=d2, groups=treatment, panel=function(x, y, ...) panel.bwplot(x, y, pch='|', ...),
-        par.strip.text=list(cex=0.6), main='Raw data 41 Modules at baseline', xlab='Log RD Score')
+dotplot(treatment ~ Median.internalization.score | cells:transcription.factor, data=d2, groups=treatment, panel=function(x, y, ...) panel.bwplot(x, y, pch='|', ...),
+        par.strip.text=list(cex=0.6), main='Raw data 30 Modules at baseline', xlab='Shifted Med int Score')
 
 ## format data for plotting
 m = colMeans(mModules)
@@ -133,15 +133,15 @@ d$mods = levels(dfData$Modules)
 ## split this factor into sub factors
 f = strsplit(d$mods, ':')
 d = cbind(d, do.call(rbind, f))
-colnames(d) = c(colnames(d)[1:5], c('cells', 'stimulation', 'treatment'))
+colnames(d) = c(colnames(d)[1:5], c('cells', 'transcription.factor', 'treatment'))
 
-dotplot(treatment ~ m+s1+s2 | cells:stimulation, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
-        par.strip.text=list(cex=0.6), main='Regression Coeff 41 Modules at baseline', xlab='Model estimated Average Log RD Score')
+dotplot(treatment ~ m+s1+s2 | cells:transcription.factor, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
+        par.strip.text=list(cex=0.6), main='Regression Coeff 30 Modules at baseline', xlab='Model estimated Average Log Med int Score')
 
 
 ## convert coefficients to natural scale / i.e. exponent
 ## format data for plotting
-m2 = exp(mModules)-iShift
+m2 = exp(mModules)
 m = colMeans(m2)
 s = apply(m2, 2, sd)*1.96
 d = data.frame(m, s, s1=m+s, s2=m-s)
@@ -149,10 +149,15 @@ d$mods = levels(dfData$Modules)
 ## split this factor into sub factors
 f = strsplit(d$mods, ':')
 d = cbind(d, do.call(rbind, f))
-colnames(d) = c(colnames(d)[1:5], c('cells', 'stimulation', 'treatment'))
+colnames(d) = c(colnames(d)[1:5], c('cells', 'transcription.factor', 'treatment'))
 
-dotplot(treatment ~ m+s1+s2 | cells:stimulation, data=d, panel=llines(d$s1, d$s2), cex=0.6,
-        par.strip.text=list(cex=0.7), main='Regression Coeff 41 Modules at baseline', xlab='Model estimated Average RD Score')
+dotplot(treatment ~ m+s1+s2 | cells:transcription.factor, data=d, panel=llines(d$s1, d$s2), cex=0.6,
+        par.strip.text=list(cex=0.7), main='Regression Coeff 30 Modules at baseline', xlab='Model estimated Average Med int Score')
+
+
+
+
+
 
 
 ### get p.values for contrasts of interest
