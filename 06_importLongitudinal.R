@@ -124,11 +124,15 @@ library(LearnBayes)
 set.seed(123) # for replication
 
 ivResp = dfData$Rd.score
-ivResp = ivResp+abs(min(ivResp))+2
+ivResp = ivResp+abs(min(ivResp))+1
 ivResp = log(ivResp)
 summary(ivResp)
 sd(ivResp)
 
+densityplot(~ ivResp | dfData$Treatment)
+
+ivResp = ivResp[dfData$Treatment == 'Adalimumab']
+length(ivResp)
 ## define a log posterior function
 lp = function(theta, data){
   # we define the sigma on a log scale as optimizers work better
@@ -430,6 +434,49 @@ temp = apply(mDraws.t, 2, function(x) {x = density(x)
 lines(x, col='red', lwd=0.6)
 })
 lines(yresp, lwd=2)
+
+## try contaminated normal
+library(rstan)
+stanDso = rstan::stan_model(file='redundant/fitContaminatedNorm.stan')
+
+lStanData = list(Ntotal=length(ivResp), y=ivResp)
+
+fit.stan = sampling(stanDso, data=lStanData, iter=3000, chains=2)
+print(fit.stan)
+m = extract(fit.stan)
+muSample.op = m$mu
+sigSample.op1 = m$sigma[,1]
+sigSample.op2 = m$sigma[,2]
+iMix = m$iMixWeights[,1]
+
+########## simulate 200 test quantities
+mDraws = matrix(NA, nrow = length(ivResp), ncol=200)
+mThetas = matrix(NA, nrow=200, ncol=4)
+colnames(mThetas) = c('mu', 'sd1', 'sd2', 'mix')
+
+for (i in 1:200){
+  p = sample(1:3000, size = 1)
+  ## this will take a sample from a contaminated normal distribution
+  sam = function() {
+    ind = rbinom(1, 1, iMix[p])
+    return(ind * rnorm(1, muSample.op[p], sigSample.op1[p]) + (1-ind) * rnorm(1, muSample.op[p], sigSample.op2[p]))
+  }
+  mDraws[,i] = replicate(length(ivResp), sam())
+  mThetas[i,] = c(muSample.op[p], sigSample.op1[p], sigSample.op2[p], iMix[p])
+}
+
+mDraws.t = mDraws
+
+
+
+
+
+
+
+
+
+
+
 
 ### save the data for use
 write.csv(dfData, file='dataExternal/healthyData/mergedData.csv', row.names = F)
