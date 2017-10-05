@@ -468,7 +468,89 @@ for (i in 1:200){
 mDraws.t = mDraws
 
 
+############################### fit a model using stan to estimate mixture parameters
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+stanDso = rstan::stan_model(file='fitNormMixture.stan')
 
+## take a subset of the data
+lStanData = list(Ntotal=length(ivResp), y=ivResp, iMixtures=2)
+
+## give initial values if you want, look at the density plot 
+initf = function(chain_id = 1) {
+  list(mu = c(10, 30), sigma = c(11, 112), iMixWeights=c(0.5, 0.5))
+} 
+
+## give initial values function to stan
+# l = lapply(1, initf)
+fit.stan = sampling(stanDso, data=lStanData, iter=2000, chains=2, cores=2)#init=initf, cores=4)
+print(fit.stan, digi=3)
+traceplot(fit.stan)
+
+## check if labelling degeneracy has occured
+## see here: http://mc-stan.org/users/documentation/case-studies/identifying_mixture_models.html
+params1 = as.data.frame(extract(fit.stan, permuted=FALSE)[,1,])
+params2 = as.data.frame(extract(fit.stan, permuted=FALSE)[,2,])
+
+## check if the means from different chains overlap
+## Labeling Degeneracy by Enforcing an Ordering
+par(mfrow=c(1,2))
+plot(params1$`mu[1]`, params1$`mu[2]`, pch=20, col=2)
+plot(params2$`mu[1]`, params2$`mu[2]`, pch=20, col=3)
+
+par(mfrow=c(1,1))
+plot(params1$`mu[1]`, params1$`mu[2]`, pch=20, col=2)
+points(params2$`mu[1]`, params2$`mu[2]`, pch=20, col=3)
+
+############# extract the mcmc sample values from stan
+mStan = do.call(cbind, extract(fit.stan))
+mStan = mStan[,-(ncol(mStan))]
+colnames(mStan) = c('mu1', 'mu2', 'sigma1', 'sigma2', 'mix1', 'mix2')
+dim(mStan)
+## get a sample for this distribution
+########## simulate 200 test quantities
+mDraws = matrix(NA, nrow = length(ivResp), ncol=200)
+
+for (i in 1:200){
+  p = sample(1:nrow(mStan), size = 1)
+  mix = mStan[p,'mix1']
+  ## this will take a sample from a normal mixture distribution
+  sam = function() {
+    ind = rbinom(1, 1, prob = mix)
+    return(ind * rnorm(1, mStan[p, 'mu1'], mStan[p, 'sigma1']) + 
+             (1-ind) * rnorm(1, mStan[p, 'mu2'], mStan[p, 'sigma2']))
+  }
+  mDraws[,i] = replicate(length(ivResp), sam())
+}
+
+mDraws.normMix = mDraws
+
+plot(yresp, xlab='', main='Fitted distribution', ylab='scaled density', lwd=2)
+temp = apply(mDraws, 2, function(x) {x = density(x)
+x$y = x$y/max(x$y)
+lines(x, col='darkgrey', lwd=0.6)
+})
+lines(yresp, lwd=2)
+
+t1 = apply(mDraws, 2, T1_var)
+ivTestQuantities = getPValue(t1, var(lStanData$y))
+
+t1 = apply(mDraws, 2, T1_min)
+t2 = T1_min(lStanData$y)
+ivTestQuantities = c(ivTestQuantities, getPValue(t1, t2))
+
+t1 = apply(mDraws, 2, T1_max)
+t2 = T1_max(lStanData$y)
+ivTestQuantities = c(ivTestQuantities, getPValue(t1, t2))
+
+t1 = apply(mDraws, 2, T1_mean)
+t2 = T1_mean(lStanData$y)
+ivTestQuantities = c(ivTestQuantities, getPValue(t1, t2))
+
+names(ivTestQuantities) = c('variance', 'minimum', 'maximum', 'mean')
+
+ivTestQuantities
 
 
 
