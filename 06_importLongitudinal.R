@@ -130,8 +130,8 @@ summary(ivResp)
 sd(ivResp)
 
 densityplot(~ ivResp | dfData$Treatment)
-
-#ivResp = ivResp[dfData$Treatment == 'Adalimumab']
+ivResp = sample(ivResp, 500)
+densityplot(ivResp)
 length(ivResp)
 
 ############# try a normal distribution
@@ -268,182 +268,6 @@ x$y = x$y/max(x$y)
 lines(x, col='darkgrey', lwd=0.6)
 })
 
-########################################3 try second distrubution
-lp3 = function(theta, data){
-  # function to use to use scale parameter
-  ## see here https://grollchristian.wordpress.com/2013/04/30/students-t-location-scale/
-  dt_ls = function(x, df, mu, a) 1/a * dt((x - mu)/a, df)
-  ## likelihood function
-  lf = function(dat, pred){
-    return(log(dt_ls(dat, nu, pred, sigma)))
-  }
-  nu = exp(theta['nu']) ## normality parameter for t distribution
-  sigma = exp(theta['sigma']) # scale parameter for t distribution
-  m = theta[1]
-  d = data$vector # observed data vector
-  if (nu < 1) return(-Inf)
-  log.lik = sum(lf(d, m))
-  log.prior = dcauchy(sigma, 0, 2.5, log=T) + dexp(nu, 1/29, log=T)
-  log.post = log.lik + log.prior
-  return(log.post)
-}
-
-# sanity check for function
-# choose a starting value
-start = c('mu'=mean(ivResp), 'sigma'=log(sd(ivResp)), 'nu'=log(2))
-lp3(start, lData)
-
-op = optim(start, lp3, control = list(fnscale = -1), data=lData)
-op$par
-exp(op$par[2:3])
-
-## try the laplace function from LearnBayes
-fit3 = laplace(lp3, start, lData)
-fit3
-se3 = sqrt(diag(fit3$var))
-
-### lets use the results from laplace and SIR sampling with a t proposal density
-### to take a sample
-tpar = list(m=fit3$mode, var=fit3$var*2, df=3)
-## get a sample directly and using sir (sampling importance resampling with a t proposal density)
-s = sir(lp3, tpar, 1000, lData)
-apply(s, 2, mean)[1]
-exp(apply(s, 2, mean)[c(2,3)])
-mSir = s
-
-# sigSample.op = rnorm(1000, fit3$mode['sigma'], se3['sigma'])
-# nuSample = exp(rnorm(1000, fit3$mode['nu'], se3['nu']))
-sigSample.op = mSir[,'sigma']
-nuSample = exp(mSir[,'nu'])
-# threshold the sample values to above or equal to 1
-nuSample[nuSample < 1] = 1
-
-## generate random samples from alternative t-distribution parameterization
-## see https://grollchristian.wordpress.com/2013/04/30/students-t-location-scale/
-rt_ls <- function(n, df, mu, a) rt(n,df)*a + mu
-# muSample.op = rnorm(1000, mean(lData$vector), exp(sigSample.op)/sqrt(length(lData$vector)))
-muSample.op = mSir[,'mu']
-########## simulate 200 test quantities
-mDraws = matrix(NA, nrow = length(ivResp), ncol=200)
-mThetas = matrix(NA, nrow=200, ncol=3)
-colnames(mThetas) = c('mu', 'sd', 'nu')
-
-for (i in 1:200){
-  p = sample(1:1000, size = 1)
-  s = exp(sigSample.op[p])
-  m = muSample.op[p]
-  n = nuSample[p]
-  mDraws[,i] = rt_ls(length(ivResp), n, m, s)
-  mThetas[i,] = c(m, s, n)
-}
-
-mDraws.t = mDraws
-## get the p-values for the test statistics
-t1 = apply(mDraws, 2, T1_var)
-mChecks['Variance', 2] = getPValue(t1, var(lData$vector))
-
-## test for symmetry
-t1 = sapply(seq_along(1:200), function(x) T1_symmetry(mDraws[,x], mThetas[x,'mu']))
-t2 = sapply(seq_along(1:200), function(x) T1_symmetry(lData$vector, mThetas[x,'mu']))
-plot(t2, t1, pch=20, xlab='Realized Value T(Yobs, Theta)',
-     ylab='Test Value T(Yrep, Theta)', main='Symmetry Check (T Distribution)')
-abline(0,1)
-mChecks['Symmetry', 2] = getPValue(t1, t2) 
-
-## testing for outlier detection i.e. the minimum value show in the histograms earlier
-t1 = apply(mDraws, 2, T1_min)
-t2 = T1_min(lData$vector)
-mChecks['Min', 2] = getPValue(t1, t2)
-
-## maximum value
-t1 = apply(mDraws, 2, T1_max)
-t2 = T1_max(lData$vector)
-mChecks['Max', 2] = getPValue(t1, t2)
-
-## mean value
-t1 = apply(mDraws, 2, T1_mean)
-t2 = T1_mean(lData$vector)
-mChecks['Mean', 2] = getPValue(t1, t2)
-
-mChecks
-
-yresp = density(ivResp)
-yresp$y = yresp$y/max(yresp$y)
-plot(yresp, xlab='', main='Fitted distribution', ylab='density', lwd=2, ylim=c(0, 1.1))
-temp = apply(mDraws.t, 2, function(x) {x = density(x)
-x$y = x$y/max(x$y)
-lines(x, col='red', lwd=0.6)
-})
-lines(yresp, lwd=2)
-
-############## generate an MCMC sample using stan
-library(rstan)
-stanDso = rstan::stan_model(file='fitTparam.stan')
-
-lStanData = list(Ntotal=length(ivResp), y=ivResp)
-
-fit.stan = sampling(stanDso, data=lStanData, iter=5000, chains=2, pars=c('mu', 'sig', 'nu'))
-print(fit.stan)
-m = extract(fit.stan)
-muSample.op = m$mu
-sigSample.op = m$sig
-nuSample = m$nu
-
-mDraws = matrix(NA, nrow = length(ivResp), ncol=200)
-mThetas = matrix(NA, nrow=200, ncol=3)
-colnames(mThetas) = c('mu', 'sd', 'nu')
-
-for (i in 1:200){
-  p = sample(1:5000, size = 1)
-  s = sigSample.op[p]
-  m = muSample.op[p]
-  n = nuSample[p]
-  mDraws[,i] = rt_ls(length(ivResp), n, m, s)
-  mThetas[i,] = c(m, s, n)
-}
-
-mDraws.t = mDraws
-
-yresp = density(ivResp)
-plot(yresp, xlab='', main='Fitted distribution', ylab='density', lwd=2, ylim=c(0, 2.4))
-temp = apply(mDraws.t, 2, function(x) {x = density(x)
-#x$y = x$y/max(x$y)
-lines(x, col='red', lwd=0.6)
-})
-lines(yresp, lwd=2)
-
-## try contaminated normal
-library(rstan)
-stanDso = rstan::stan_model(file='redundant/fitContaminatedNorm.stan')
-
-lStanData = list(Ntotal=length(ivResp), y=ivResp)
-
-fit.stan = sampling(stanDso, data=lStanData, iter=3000, chains=2)
-print(fit.stan)
-m = extract(fit.stan)
-muSample.op = m$mu
-sigSample.op1 = m$sigma[,1]
-sigSample.op2 = m$sigma[,2]
-iMix = m$iMixWeights[,1]
-
-########## simulate 200 test quantities
-mDraws = matrix(NA, nrow = length(ivResp), ncol=200)
-mThetas = matrix(NA, nrow=200, ncol=4)
-colnames(mThetas) = c('mu', 'sd1', 'sd2', 'mix')
-
-for (i in 1:200){
-  p = sample(1:3000, size = 1)
-  ## this will take a sample from a contaminated normal distribution
-  sam = function() {
-    ind = rbinom(1, 1, iMix[p])
-    return(ind * rnorm(1, muSample.op[p], sigSample.op1[p]) + (1-ind) * rnorm(1, muSample.op[p], sigSample.op2[p]))
-  }
-  mDraws[,i] = replicate(length(ivResp), sam())
-  mThetas[i,] = c(muSample.op[p], sigSample.op1[p], sigSample.op2[p], iMix[p])
-}
-
-mDraws.t = mDraws
-
 
 ############################### fit a model using stan to estimate mixture parameters
 library(rstan)
@@ -452,16 +276,16 @@ options(mc.cores = parallel::detectCores())
 stanDso = rstan::stan_model(file='fitNormMixture.stan')
 
 ## stan data
-lStanData = list(Ntotal=length(ivResp), y=ivResp, iMixtures=3)
+lStanData = list(Ntotal=length(ivResp), y=ivResp, iMixtures=2)
 
 # ## give initial values if you want, look at the density plot 
 initf = function(chain_id = 1) {
-  list(mu = c(0.2, 0.7, 0.9))#, sigma = c(11, 112), iMixWeights=c(0.5, 0.5))
+  list(mu = c(1.2, 1.5), iMixWeights=c(0.5, 0.5))
 }
 
 ## give initial values function to stan
 # l = lapply(1, initf)
-fit.stan = sampling(stanDso, data=lStanData, iter=500, chains=2, cores=2, init=initf)
+fit.stan = sampling(stanDso, data=lStanData, iter=1000, chains=2, cores=2, init=initf)
 print(fit.stan, digi=3)
 traceplot(fit.stan)
 
@@ -530,12 +354,182 @@ names(ivTestQuantities) = c('variance', 'minimum', 'maximum', 'mean')
 ivTestQuantities
 
 
-
-
-
-
-
-
-
 ### save the data for use
-write.csv(dfData, file='dataExternal/healthyData/mergedData.csv', row.names = F)
+write.csv(dfData, file='dataExternal/healthyData/diseasedData.csv', row.names = F)
+
+# ########################################3 try second distrubution
+# lp3 = function(theta, data){
+#   # function to use to use scale parameter
+#   ## see here https://grollchristian.wordpress.com/2013/04/30/students-t-location-scale/
+#   dt_ls = function(x, df, mu, a) 1/a * dt((x - mu)/a, df)
+#   ## likelihood function
+#   lf = function(dat, pred){
+#     return(log(dt_ls(dat, nu, pred, sigma)))
+#   }
+#   nu = exp(theta['nu']) ## normality parameter for t distribution
+#   sigma = exp(theta['sigma']) # scale parameter for t distribution
+#   m = theta[1]
+#   d = data$vector # observed data vector
+#   if (nu < 1) return(-Inf)
+#   log.lik = sum(lf(d, m))
+#   log.prior = dcauchy(sigma, 0, 2.5, log=T) + dexp(nu, 1/29, log=T)
+#   log.post = log.lik + log.prior
+#   return(log.post)
+# }
+# 
+# # sanity check for function
+# # choose a starting value
+# start = c('mu'=mean(ivResp), 'sigma'=log(sd(ivResp)), 'nu'=log(2))
+# lp3(start, lData)
+# 
+# op = optim(start, lp3, control = list(fnscale = -1), data=lData)
+# op$par
+# exp(op$par[2:3])
+# 
+# ## try the laplace function from LearnBayes
+# fit3 = laplace(lp3, start, lData)
+# fit3
+# se3 = sqrt(diag(fit3$var))
+# 
+# ### lets use the results from laplace and SIR sampling with a t proposal density
+# ### to take a sample
+# tpar = list(m=fit3$mode, var=fit3$var*2, df=3)
+# ## get a sample directly and using sir (sampling importance resampling with a t proposal density)
+# s = sir(lp3, tpar, 1000, lData)
+# apply(s, 2, mean)[1]
+# exp(apply(s, 2, mean)[c(2,3)])
+# mSir = s
+# 
+# # sigSample.op = rnorm(1000, fit3$mode['sigma'], se3['sigma'])
+# # nuSample = exp(rnorm(1000, fit3$mode['nu'], se3['nu']))
+# sigSample.op = mSir[,'sigma']
+# nuSample = exp(mSir[,'nu'])
+# # threshold the sample values to above or equal to 1
+# nuSample[nuSample < 1] = 1
+# 
+# ## generate random samples from alternative t-distribution parameterization
+# ## see https://grollchristian.wordpress.com/2013/04/30/students-t-location-scale/
+# rt_ls <- function(n, df, mu, a) rt(n,df)*a + mu
+# # muSample.op = rnorm(1000, mean(lData$vector), exp(sigSample.op)/sqrt(length(lData$vector)))
+# muSample.op = mSir[,'mu']
+# ########## simulate 200 test quantities
+# mDraws = matrix(NA, nrow = length(ivResp), ncol=200)
+# mThetas = matrix(NA, nrow=200, ncol=3)
+# colnames(mThetas) = c('mu', 'sd', 'nu')
+# 
+# for (i in 1:200){
+#   p = sample(1:1000, size = 1)
+#   s = exp(sigSample.op[p])
+#   m = muSample.op[p]
+#   n = nuSample[p]
+#   mDraws[,i] = rt_ls(length(ivResp), n, m, s)
+#   mThetas[i,] = c(m, s, n)
+# }
+# 
+# mDraws.t = mDraws
+# ## get the p-values for the test statistics
+# t1 = apply(mDraws, 2, T1_var)
+# mChecks['Variance', 2] = getPValue(t1, var(lData$vector))
+# 
+# ## test for symmetry
+# t1 = sapply(seq_along(1:200), function(x) T1_symmetry(mDraws[,x], mThetas[x,'mu']))
+# t2 = sapply(seq_along(1:200), function(x) T1_symmetry(lData$vector, mThetas[x,'mu']))
+# plot(t2, t1, pch=20, xlab='Realized Value T(Yobs, Theta)',
+#      ylab='Test Value T(Yrep, Theta)', main='Symmetry Check (T Distribution)')
+# abline(0,1)
+# mChecks['Symmetry', 2] = getPValue(t1, t2) 
+# 
+# ## testing for outlier detection i.e. the minimum value show in the histograms earlier
+# t1 = apply(mDraws, 2, T1_min)
+# t2 = T1_min(lData$vector)
+# mChecks['Min', 2] = getPValue(t1, t2)
+# 
+# ## maximum value
+# t1 = apply(mDraws, 2, T1_max)
+# t2 = T1_max(lData$vector)
+# mChecks['Max', 2] = getPValue(t1, t2)
+# 
+# ## mean value
+# t1 = apply(mDraws, 2, T1_mean)
+# t2 = T1_mean(lData$vector)
+# mChecks['Mean', 2] = getPValue(t1, t2)
+# 
+# mChecks
+# 
+# yresp = density(ivResp)
+# yresp$y = yresp$y/max(yresp$y)
+# plot(yresp, xlab='', main='Fitted distribution', ylab='density', lwd=2, ylim=c(0, 1.1))
+# temp = apply(mDraws.t, 2, function(x) {x = density(x)
+# x$y = x$y/max(x$y)
+# lines(x, col='red', lwd=0.6)
+# })
+# lines(yresp, lwd=2)
+# 
+# ############## generate an MCMC sample using stan
+# library(rstan)
+# stanDso = rstan::stan_model(file='fitTparam.stan')
+# 
+# lStanData = list(Ntotal=length(ivResp), y=ivResp)
+# 
+# fit.stan = sampling(stanDso, data=lStanData, iter=5000, chains=2, pars=c('mu', 'sig', 'nu'))
+# print(fit.stan)
+# m = extract(fit.stan)
+# muSample.op = m$mu
+# sigSample.op = m$sig
+# nuSample = m$nu
+# 
+# mDraws = matrix(NA, nrow = length(ivResp), ncol=200)
+# mThetas = matrix(NA, nrow=200, ncol=3)
+# colnames(mThetas) = c('mu', 'sd', 'nu')
+# 
+# for (i in 1:200){
+#   p = sample(1:5000, size = 1)
+#   s = sigSample.op[p]
+#   m = muSample.op[p]
+#   n = nuSample[p]
+#   mDraws[,i] = rt_ls(length(ivResp), n, m, s)
+#   mThetas[i,] = c(m, s, n)
+# }
+# 
+# mDraws.t = mDraws
+# 
+# yresp = density(ivResp)
+# plot(yresp, xlab='', main='Fitted distribution', ylab='density', lwd=2, ylim=c(0, 2.4))
+# temp = apply(mDraws.t, 2, function(x) {x = density(x)
+# #x$y = x$y/max(x$y)
+# lines(x, col='red', lwd=0.6)
+# })
+# lines(yresp, lwd=2)
+# 
+# ## try contaminated normal
+# library(rstan)
+# stanDso = rstan::stan_model(file='redundant/fitContaminatedNorm.stan')
+# 
+# lStanData = list(Ntotal=length(ivResp), y=ivResp)
+# 
+# fit.stan = sampling(stanDso, data=lStanData, iter=3000, chains=2)
+# print(fit.stan)
+# m = extract(fit.stan)
+# muSample.op = m$mu
+# sigSample.op1 = m$sigma[,1]
+# sigSample.op2 = m$sigma[,2]
+# iMix = m$iMixWeights[,1]
+# 
+# ########## simulate 200 test quantities
+# mDraws = matrix(NA, nrow = length(ivResp), ncol=200)
+# mThetas = matrix(NA, nrow=200, ncol=4)
+# colnames(mThetas) = c('mu', 'sd1', 'sd2', 'mix')
+# 
+# for (i in 1:200){
+#   p = sample(1:3000, size = 1)
+#   ## this will take a sample from a contaminated normal distribution
+#   sam = function() {
+#     ind = rbinom(1, 1, iMix[p])
+#     return(ind * rnorm(1, muSample.op[p], sigSample.op1[p]) + (1-ind) * rnorm(1, muSample.op[p], sigSample.op2[p]))
+#   }
+#   mDraws[,i] = replicate(length(ivResp), sam())
+#   mThetas[i,] = c(muSample.op[p], sigSample.op1[p], sigSample.op2[p], iMix[p])
+# }
+# 
+# mDraws.t = mDraws
+# 

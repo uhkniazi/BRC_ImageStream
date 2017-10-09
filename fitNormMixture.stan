@@ -19,7 +19,7 @@ model {
   // any priors go here 
   //mu[1] ~ normal(10, 5);
   //mu[2] ~ normal(40, 5);
-  sigma ~ cauchy(0, 2.5); // weak prior
+  sigma ~ normal(0, 1); // weak prior
   iMixWeights ~ dirichlet(rep_vector(2.0, iMixtures));
   // loop to calculate likelihood
   for(n in 1:Ntotal){
