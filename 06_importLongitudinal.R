@@ -124,15 +124,17 @@ library(LearnBayes)
 set.seed(123) # for replication
 
 ivResp = dfData$Rd.score
-ivResp = ivResp+abs(min(ivResp))+1
+ivResp = ivResp+abs(min(ivResp))+2
 ivResp = log(ivResp)
 summary(ivResp)
 sd(ivResp)
 
 densityplot(~ ivResp | dfData$Treatment)
 
-ivResp = ivResp[dfData$Treatment == 'Adalimumab']
+#ivResp = ivResp[dfData$Treatment == 'Adalimumab']
 length(ivResp)
+
+############# try a normal distribution
 ## define a log posterior function
 lp = function(theta, data){
   # we define the sigma on a log scale as optimizers work better
@@ -175,31 +177,11 @@ mSir = s
 
 ## lets take a sample from this
 sigSample.op = mSir[,'sigma']
-muSample.op = mSir[,'mu'] #rnorm(1000, mean(lData$vector), exp(sigSample.op)/sqrt(length(lData$vector)))
-# # second way of taking the sample
-# muSample2.op = rnorm(1000, fit$mode['mu'], se['mu'])
-
+muSample.op = mSir[,'mu']
 fit$mode['mu']-1.96*se['mu']; fit$mode['mu']+1.96*se['mu']
 quantile(muSample.op, c(0.025, 0.975))
 
-### if we look at the histogram of the measurements
-hist(ivResp, xlab='RD Score', main='', breaks=10)
-
 ########### Model checking
-## sample X values, 20 times, each time drawing a fresh draw of sd and mean from the joint posterior
-mDraws = matrix(NA, nrow = length(ivResp), ncol=20)
-
-for (i in 1:20){
-  p = sample(1:1000, size = 1)
-  s = exp(sigSample.op[p])
-  m = muSample.op[p]
-  mDraws[,i] = rnorm(length(ivResp), m, s)
-}
-
-p.old = par(mfrow=c(2, 2))
-garbage = apply(mDraws, 2, function(x) hist(x, main='', xlab='', ylab=''))
-hist(ivResp, xlab='rd score', main='')
-
 ## calculate bayesian p-value for this test statistic
 getPValue = function(Trep, Tobs){
   left = sum(Trep <= Tobs)/length(Trep)
@@ -234,7 +216,7 @@ T1_mean = function(Y){
 ## mChecks
 mChecks = matrix(NA, nrow=5, ncol=2)
 rownames(mChecks) = c('Variance', 'Symmetry', 'Max', 'Min', 'Mean')
-colnames(mChecks) = c('Normal', 't')
+colnames(mChecks) = c('Normal', 'mixture')
 ########## simulate 200 test quantities
 mDraws = matrix(NA, nrow = length(ivResp), ncol=200)
 mThetas = matrix(NA, nrow=200, ncol=2)
@@ -251,8 +233,6 @@ for (i in 1:200){
 mDraws.norm = mDraws
 ### get the test quantity from the test function
 t1 = apply(mDraws, 2, T1_var)
-hist(t1, xlab='Test Quantity - Variance (Normal Model)', main='', breaks=10)
-abline(v = var(lData$vector), lwd=2)
 mChecks['Variance', 1] = getPValue(t1, var(lData$vector))
 
 ## test for symmetry
@@ -279,7 +259,7 @@ mChecks['Mean', 1] = getPValue(t1, t2)
 
 mChecks
 
-## normal model seems appropriate here
+## normal model seems inappropriate here
 yresp = density(ivResp)
 yresp$y = yresp$y/max(yresp$y)
 plot(yresp, xlab='', main='Fitted distribution', ylab='scaled density', lwd=2, ylim=c(0, 1.1))
@@ -287,9 +267,6 @@ temp = apply(mDraws, 2, function(x) {x = density(x)
 x$y = x$y/max(x$y)
 lines(x, col='darkgrey', lwd=0.6)
 })
-lines(yresp, lwd=2)
-
-plot(density(ivResp))
 
 ########################################3 try second distrubution
 lp3 = function(theta, data){
@@ -474,17 +451,17 @@ rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 stanDso = rstan::stan_model(file='fitNormMixture.stan')
 
-## take a subset of the data
-lStanData = list(Ntotal=length(ivResp), y=ivResp, iMixtures=2)
+## stan data
+lStanData = list(Ntotal=length(ivResp), y=ivResp, iMixtures=3)
 
-## give initial values if you want, look at the density plot 
+# ## give initial values if you want, look at the density plot 
 initf = function(chain_id = 1) {
-  list(mu = c(10, 30), sigma = c(11, 112), iMixWeights=c(0.5, 0.5))
-} 
+  list(mu = c(0.2, 0.7, 0.9))#, sigma = c(11, 112), iMixWeights=c(0.5, 0.5))
+}
 
 ## give initial values function to stan
 # l = lapply(1, initf)
-fit.stan = sampling(stanDso, data=lStanData, iter=2000, chains=2, cores=2)#init=initf, cores=4)
+fit.stan = sampling(stanDso, data=lStanData, iter=500, chains=2, cores=2, init=initf)
 print(fit.stan, digi=3)
 traceplot(fit.stan)
 
