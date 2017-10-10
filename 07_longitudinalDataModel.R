@@ -29,20 +29,40 @@ xyplot(Rd.score ~ time | fModule, data=dfData, type=c('r'),
        par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), groups=dfData$Treatment,
        auto.key = list(columns=2))
 
-i = sample(1:nrow(dfData), 500)
-dfData = dfData[i,]
-dim(dfData)
+xyplot(Rd.score ~ Visit..Week. | fModule, data=dfData, type=c('p'), pch=20,
+       index.cond = function(x,y) coef(lm(y ~ x))[1], #aspect='xy',# layout=c(8,2),
+       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), groups=dfData$Treatment,
+       auto.key = list(columns=2))
 
-dotplot(Treatment ~ Rd.score | Visit..Week.:Cell.type, data=dfData, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b')
+dotplot(Treatment ~ Rd.score | fModule:Visit..Week., data=dfData, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
+        par.strip.text=list(cex=0.5))
+
+dotplot(Treatment ~ Rd.score | fModule:Visit..Week., data=dfData[dfData$Visit..Week. == 'Baseline',], panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
+        par.strip.text=list(cex=0.7))
+
+dotplot(Treatment ~ Rd.score | fModule:Visit..Week., data=dfData[dfData$Visit..Week. == 'Week 1',], panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
+        par.strip.text=list(cex=0.7))
+
+dotplot(Treatment ~ Rd.score | fModule:Visit..Week., data=dfData[dfData$Visit..Week. == 'Week 4',], panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
+        par.strip.text=list(cex=0.7))
+
+dotplot(Treatment ~ Rd.score | fModule:Visit..Week., data=dfData[dfData$Visit..Week. == 'Week 12',], panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
+        par.strip.text=list(cex=0.7))
+
+# i = sample(1:nrow(dfData), 1000)
+# dfData = dfData[i,]
+# dim(dfData)
+
+#dotplot(Treatment ~ Rd.score | Visit..Week.:Cell.type, data=dfData, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b')
 ## make a plot of the raw data
 ## format before plotting
-d2 = dfData[,c('Rd.score',  'Treatment', 'fModule')]
-f = strsplit(as.character(d2$fModule), ':')
-d2 = cbind(d2, do.call(rbind, f))
-colnames(d2) = c(colnames(d2)[1:3], c('cells', 'stimulation'))
-
-dotplot(Treatment ~ Rd.score | cells:stimulation, data=d2, groups=Treatment, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...),
-        par.strip.text=list(cex=0.6), main='Raw data 41 Modules at baseline', xlab='Raw RD Score')
+# d2 = dfData[,c('Rd.score',  'Treatment', 'fModule')]
+# f = strsplit(as.character(d2$fModule), ':')
+# d2 = cbind(d2, do.call(rbind, f))
+# colnames(d2) = c(colnames(d2)[1:3], c('cells', 'stimulation'))
+# 
+# dotplot(Treatment ~ Rd.score | cells:stimulation, data=d2, groups=Treatment, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...),
+#         par.strip.text=list(cex=0.6), main='Raw data 41 Modules at baseline', xlab='Raw RD Score')
 
 
 ## log the data before modelling
@@ -52,15 +72,14 @@ ivResp = ivResp+abs(min(ivResp))+2
 ivResp = log(ivResp)
 dfData$Rd.score = ivResp
 
-library(lme4)
-fit.lme1 = lmer(Rd.score ~ 1 + (1 | Treatment), data=dfData)
-summary(fit.lme1)
+## create a new factor with a combinations of factors of interest
+f = factor(dfData$Treatment:dfData$fModule:dfData$Visit..Week.)
+dfData$Coef = f
+densityplot(dfData$Rd.score, groups=dfData$Coef)
+densityplot(dfData$Rd.score)
 
-densityplot(dfData$Rd.score, groups=dfData$combo, auto.key=T)
-
-f = factor(dfData$Treatment:dfData$Visit..Week.:dfData$Cell.type)
-dfData$combo = f
-fit.flex = flexmix(Rd.score ~ combo, data=dfData, k=2)
+library(flexmix)
+fit.flex = flexmix(Rd.score ~ Coef, data=dfData, k=2)
 #fit.flex = flexmix(.~.|Treatment, data=dfData, k=2, model=FLXMRlmer(Rd.score ~ Treatment, random=~ 1))
 summary(fit.flex)
 ## fitted coefficients
@@ -74,20 +93,24 @@ stanDso = rstan::stan_model(file='fitNormMixtureRandomEffects.stan')
 #l = gammaShRaFromModeSD(sd(dfData$Rd.score), 2*sd(dfData$Rd.score))
 # m = model.matrix(Rd.score ~ Transcription.factor, data=dfData)
 
-lStanData = list(Ntotal=nrow(dfData), Nclusters1=nlevels(dfData$combo), 
-                 NgroupMap1=as.numeric(dfData$combo), y=dfData$Rd.score, iMixtures=2)
+lStanData = list(Ntotal=nrow(dfData), Nclusters1=nlevels(dfData$Coef), Nclusters2=nlevels(dfData$Patient.ID), 
+                 NgroupMap1=as.numeric(dfData$Coef), NgroupMap2=as.numeric(dfData$Patient.ID),  
+                 y=dfData$Rd.score, iMixtures=2)
 
-fit.stan = sampling(stanDso, data=lStanData, iter=1000, chains=2, cores=2, 
-                    pars=c('mu', 'sigmaRan1', 'sigma', 'iMixWeights', 'rGroupsJitter1'))#, control=list(adapt_delta=0.99, max_treedepth = 15))
-print(fit.stan, c('mu', 'sigmaRan1', 'sigma', 'iMixWeights', 'betas', 'rGroupsJitter1'), digits=3)
+fit.stan = sampling(stanDso, data=lStanData, iter=2000, chains=2, cores=2, 
+                    pars=c('mu', 'sigma', 'iMixWeights',
+                           'rGroupsJitter1', 'sigmaRan1',
+                           'rGroupsJitter2', 'sigmaRan2'))  ####, control=list(adapt_delta=0.99, max_treedepth = 15))
+print(fit.stan, c('mu', 'sigma', 'iMixWeights',
+                  'sigmaRan1', 'sigmaRan2'), digits=3)
 
 ## get the coefficient of interest - Modules in our case from the random coefficients section
 mModules = extract(fit.stan)$rGroupsJitter1
 dim(mModules)
 ## get the intercept at population level
-iIntercept = extract(fit.stan)$betas[,1]
+#iIntercept = extract(fit.stan)$betas[,1]
 ## add the intercept to each random effect variable, to get the full coefficient
-mModules = sweep(mModules, 1, iIntercept, '+')
+#mModules = sweep(mModules, 1, iIntercept, '+')
 
 ## function to calculate statistics for differences between coefficients
 getDifference = function(ivData, ivBaseline){
@@ -102,12 +125,12 @@ getDifference = function(ivData, ivBaseline){
 }
 
 ## split the data into the comparisons required
-d = data.frame(cols=1:ncol(mModules), mods=levels(dfData$combo))
+d = data.frame(cols=1:ncol(mModules), mods=levels(dfData$Coef))
 ## split this factor into sub factors
 f = strsplit(as.character(d$mods), ':')
 d = cbind(d, do.call(rbind, f))
-colnames(d) = c(colnames(d)[1:2], c('drug', 'time', 'cells'))
-d$split = factor(d$time:d$cells)
+colnames(d) = c(colnames(d)[1:2], c('drug', 'cells', 'stimulation', 'time'))
+d$split = factor(d$cells:d$stimulation:d$time)
 
 ## this data frame is a mapper for each required comparison
 ldfMap = split(d, f = d$split)
@@ -116,37 +139,41 @@ ldfMap = split(d, f = d$split)
 l = lapply(ldfMap, function(x) {
   c = x$cols
   d = getDifference(ivData = mModules[,c[2]], ivBaseline = mModules[,c[1]])
-  r = data.frame(mods= as.character(x$mods[1]), coef.adal=mean(mModules[,c[1]]), 
+  r = data.frame(module= as.character(x$split[1]), coef.adal=mean(mModules[,c[1]]), 
         coef.ustek=mean(mModules[,c[2]]), zscore=d$z, pvalue=d$p)
   return(format(r, digi=3))
 })
 
 dfResults = do.call(rbind, l)
 dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
-write.csv(dfResults, file='Results/mergedDataResults.csv', row.names = F)
+write.csv(dfResults, file='Results/longitudinalDataResults.csv', row.names = F)
 
 ## make the plots for the raw data and fitted data
 ## format data for plotting
-d2 = dfData[,c('Rd.score', 'Modules')]
-f = strsplit(as.character(d2$Modules), ':')
+d2 = dfData[,c('Rd.score', 'Coef')]
+#f = strsplit(as.character(d2$Modules), ':')
+f = strsplit(as.character(d2$Coef), ':')
+d2 = cbind(d2, do.call(rbind, f))
+colnames(d2) = c(colnames(d2)[1:2], c('drug', 'cells', 'stimulation', 'time'))
+
 d2 = cbind(d2, do.call(rbind, f))
 colnames(d2) = c(colnames(d2)[1:2], c('cells', 'stimulation', 'treatment'))
 
-dotplot(treatment ~ Rd.score | cells:stimulation, data=d2, groups=treatment, panel=function(x, y, ...) panel.bwplot(x, y, pch='|', ...),
-        par.strip.text=list(cex=0.6), main='Raw data 41 Modules at baseline', xlab='Log RD Score')
+dotplot(drug ~ Rd.score | cells:stimulation:time, data=d2, groups=drug, panel=function(x, y, ...) panel.bwplot(x, y, pch='|', ...),
+        par.strip.text=list(cex=0.6), main='Raw data 164 Comparisons', xlab='Log RD Score')
 
 ## format data for plotting
 m = colMeans(mModules)
 s = apply(mModules, 2, sd)*1.96
 d = data.frame(m, s, s1=m+s, s2=m-s)
-d$mods = levels(dfData$Modules)
+d$mods = levels(dfData$Coef)
 ## split this factor into sub factors
 f = strsplit(d$mods, ':')
 d = cbind(d, do.call(rbind, f))
-colnames(d) = c(colnames(d)[1:5], c('cells', 'stimulation', 'treatment'))
+colnames(d) = c(colnames(d)[1:5], c('drug', 'cells', 'stimulation', 'time'))
 
-dotplot(treatment ~ m+s1+s2 | cells:stimulation, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
-        par.strip.text=list(cex=0.6), main='Regression Coeff 41 Modules at baseline', xlab='Model estimated Average Log RD Score')
+dotplot(drug ~ m+s1+s2 | cells:stimulation:time, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
+        par.strip.text=list(cex=0.6), main='328 Regression Coeff 164 Comparisons', xlab='Model estimated Coefficients Log RD Score')
 
 
 ## convert coefficients to natural scale / i.e. exponent
