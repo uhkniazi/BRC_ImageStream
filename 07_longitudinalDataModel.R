@@ -33,7 +33,7 @@ i = sample(1:nrow(dfData), 500)
 dfData = dfData[i,]
 dim(dfData)
 
-dotplot(Treatment ~ Rd.score | Visit..Week., data=dfData, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b')
+dotplot(Treatment ~ Rd.score | Visit..Week.:Cell.type, data=dfData, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b')
 ## make a plot of the raw data
 ## format before plotting
 d2 = dfData[,c('Rd.score',  'Treatment', 'fModule')]
@@ -58,7 +58,7 @@ summary(fit.lme1)
 
 densityplot(dfData$Rd.score, groups=dfData$combo, auto.key=T)
 
-f = factor(dfData$Treatment:dfData$Visit..Week.)
+f = factor(dfData$Treatment:dfData$Visit..Week.:dfData$Cell.type)
 dfData$combo = f
 fit.flex = flexmix(Rd.score ~ combo, data=dfData, k=2)
 #fit.flex = flexmix(.~.|Treatment, data=dfData, k=2, model=FLXMRlmer(Rd.score ~ Treatment, random=~ 1))
@@ -82,7 +82,7 @@ fit.stan = sampling(stanDso, data=lStanData, iter=1000, chains=2, cores=2,
 print(fit.stan, c('mu', 'sigmaRan1', 'sigma', 'iMixWeights', 'betas', 'rGroupsJitter1'), digits=3)
 
 ## get the coefficient of interest - Modules in our case from the random coefficients section
-mModules = extract(fit.stan)$rGroupsJitter2
+mModules = extract(fit.stan)$rGroupsJitter1
 dim(mModules)
 ## get the intercept at population level
 iIntercept = extract(fit.stan)$betas[,1]
@@ -102,12 +102,12 @@ getDifference = function(ivData, ivBaseline){
 }
 
 ## split the data into the comparisons required
-d = data.frame(cols=1:ncol(mModules), mods=levels(dfData$Modules))
+d = data.frame(cols=1:ncol(mModules), mods=levels(dfData$combo))
 ## split this factor into sub factors
 f = strsplit(as.character(d$mods), ':')
 d = cbind(d, do.call(rbind, f))
-colnames(d) = c(colnames(d)[1:2], c('cells', 'stimulation', 'treatment'))
-d$split = factor(d$cells:d$stimulation)
+colnames(d) = c(colnames(d)[1:2], c('drug', 'time', 'cells'))
+d$split = factor(d$time:d$cells)
 
 ## this data frame is a mapper for each required comparison
 ldfMap = split(d, f = d$split)
@@ -116,8 +116,8 @@ ldfMap = split(d, f = d$split)
 l = lapply(ldfMap, function(x) {
   c = x$cols
   d = getDifference(ivData = mModules[,c[2]], ivBaseline = mModules[,c[1]])
-  r = data.frame(cells= as.character(x$cells[1]), stimulation=as.character(x$stimulation[1]), coef.healthy=mean(mModules[,c[1]]), 
-        coef.patient=mean(mModules[,c[2]]), zscore=d$z, pvalue=d$p)
+  r = data.frame(mods= as.character(x$mods[1]), coef.adal=mean(mModules[,c[1]]), 
+        coef.ustek=mean(mModules[,c[2]]), zscore=d$z, pvalue=d$p)
   return(format(r, digi=3))
 })
 
