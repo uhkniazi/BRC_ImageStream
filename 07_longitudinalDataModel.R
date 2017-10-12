@@ -67,10 +67,10 @@ dotplot(Treatment ~ Rd.score | fModule:Visit..Week., data=dfData[dfData$Visit..W
 
 ## log the data before modelling
 ivResp = dfData$Rd.score
-iShift = min(ivResp)+2
-ivResp = ivResp+abs(min(ivResp))+2
-ivResp = log(ivResp)
-dfData$Rd.score = ivResp
+# iShift = min(ivResp)+2
+# ivResp = ivResp+abs(min(ivResp))+2
+# ivResp = log(ivResp)
+# dfData$Rd.score = ivResp
 
 ## create a new factor with a combinations of factors of interest
 f = factor(dfData$Treatment:dfData$fModule:dfData$Visit..Week.)
@@ -88,21 +88,39 @@ parameters(fit.flex)
 library(rstan)
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
-stanDso = rstan::stan_model(file='fitNormMixtureRandomEffects.stan')
+stanDso = rstan::stan_model(file='fitTMixtureRandomEffects.stan')
 
-#l = gammaShRaFromModeSD(sd(dfData$Rd.score), 2*sd(dfData$Rd.score))
+l = gammaShRaFromModeSD(sd(dfData$Rd.score), 2*sd(dfData$Rd.score))
 # m = model.matrix(Rd.score ~ Transcription.factor, data=dfData)
 
-lStanData = list(Ntotal=nrow(dfData), Nclusters1=nlevels(dfData$Coef), Nclusters2=nlevels(dfData$Patient.ID), 
-                 NgroupMap1=as.numeric(dfData$Coef), NgroupMap2=as.numeric(dfData$Patient.ID),  
-                 y=dfData$Rd.score, iMixtures=2)
 
-fit.stan = sampling(stanDso, data=lStanData, iter=2000, chains=2, cores=2, 
-                    pars=c('mu', 'sigma', 'iMixWeights',
+lStanData = list(Ntotal=nrow(dfData), Nclusters1=nlevels(dfData$Coef), Nclusters2=nlevels(dfData$Patient.ID),
+                 Nclusters3=nlevels(dfData$Gender),
+                 NgroupMap1=as.numeric(dfData$Coef), NgroupMap2=as.numeric(dfData$Patient.ID),
+                 NgroupMap3=as.numeric(dfData$Gender),
+                 y=dfData$Rd.score, iMixtures=2,
+                 gammaShape=l$shape, gammaRate=l$rate)
+         
+# ### try a t model without mixture and compare
+# lStanData = list(Ntotal=nrow(dfData), Nclusters1=nlevels(dfData$Coef), Nclusters2=nlevels(dfData$Patient.ID), 
+#                  NgroupMap1=as.numeric(dfData$Coef), NgroupMap2=as.numeric(dfData$Patient.ID), 
+#                  Ncol=1, #X=m,
+#                  y=dfData$Rd.score, gammaShape=l$shape, gammaRate=l$rate)
+# 
+# fit.stan = sampling(stanDso, data=lStanData, iter=1000, chains=2, pars=c('betas', 'sigmaRan1', 'sigmaRan2', 'nu',
+#                                                                          'sigmaPop','mu', 'rGroupsJitter1', 'rGroupsJitter2'),
+#                     cores=2)#, control=list(adapt_delta=0.99, max_treedepth = 15))
+# print(fit.stan, c('betas', 'sigmaRan1', 'sigmaRan2', 'sigmaPop', 'nu'), digits=3)
+
+fit.stan = sampling(stanDso, data=lStanData, iter=500, chains=2, cores=2,
+                    pars=c('mu', 'sigma', 'iMixWeights', 'nu',
                            'rGroupsJitter1', 'sigmaRan1',
-                           'rGroupsJitter2', 'sigmaRan2'))  ####, control=list(adapt_delta=0.99, max_treedepth = 15))
-print(fit.stan, c('mu', 'sigma', 'iMixWeights',
-                  'sigmaRan1', 'sigmaRan2'), digits=3)
+                           'rGroupsJitter2', 'sigmaRan2',
+                           'rGroupsJitter3', 'sigmaRan3',
+                           'muFitted')) ####, control=list(adapt_delta=0.99, max_treedepth = 15))
+
+print(fit.stan, c('mu', 'sigma', 'iMixWeights', 'nu',
+                  'sigmaRan1', 'sigmaRan2', 'sigmaRan3'), digits=3)
 
 ## get the coefficient of interest - Modules in our case from the random coefficients section
 mModules = extract(fit.stan)$rGroupsJitter1
