@@ -1,3 +1,47 @@
+m = extract(fit.stan)
+names(m)
+dim(m$muFitted)
+fitted = apply(m$muFitted, 2, mean)
+iMixWeights = colMeans(m$iMixWeights)
+intercepts = colMeans(m$mu)
+iPred1 = intercepts[1] +  fitted
+iPred2 = intercepts[2] +  fitted
+
+## get aggregate
+iAggregate = cbind(iPred1, iPred2)
+iAggregate = sweep(iAggregate, 2, iMixWeights, '*')
+iAggregate = rowSums(iAggregate)
+
+#head(data.frame(iAggregate, p.agg))
+plot(dfData$Rd.score, iAggregate, pch=20, cex=0.5)
+plot(dfData$Rd.score, dfData$Rd.score - iAggregate, pch=20, cex=0.5)
+iResid = scale(dfData$Rd.score - iAggregate)
+plot(iAggregate, iResid, pch=20, cex=0.5)
+lines(lowess(iAggregate, iResid), col=2, lwd=2)
+
+
+library(lme4)
+fit.lme1 = lmer(Rd.score ~ 1 + (1 | Coef) + (1 | Patient.ID) , data=dfData)
+summary(fit.lme1)
+iAggregate = fitted(fit.lme1)
+r = scale(resid(fit.lme1))
+points(iAggregate, r, col=2, pch=20, cex=0.5)
+plot(fitted(fit.lme1), r, pch=20, cex=0.5)
+lines(lowess(fitted(fit.lme1), r), col=2, lwd=2)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Name: linearRegression.R
 # Auth: uhkniazi
 # Date: 22/06/2017
