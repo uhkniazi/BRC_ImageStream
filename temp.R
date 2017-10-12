@@ -21,7 +21,7 @@ lines(lowess(iAggregate, iResid), col=2, lwd=2)
 
 
 library(lme4)
-fit.lme1 = lmer(Rd.score ~ 1 + (1 | Coef) + (1 | Patient.ID) , data=dfData)
+fit.lme1 = lmer(Rd.score ~ 1 + (1 | Coef) + (1 | Patient.ID) + (1 | Gender), data=dfData, REML=F)
 summary(fit.lme1)
 iAggregate = fitted(fit.lme1)
 r = scale(resid(fit.lme1))
@@ -29,7 +29,8 @@ points(iAggregate, r, col=2, pch=20, cex=0.5)
 plot(fitted(fit.lme1), r, pch=20, cex=0.5)
 lines(lowess(fitted(fit.lme1), r), col=2, lwd=2)
 
-
+plot(dfData$Rd.score, iResid, pch=20, cex=0.5)
+points(dfData$Rd.score, r, pch=20, cex=0.5, col=2)
 
 
 
