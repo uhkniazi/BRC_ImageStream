@@ -8,6 +8,11 @@ l = lapply(csFiles, function(x) read.csv(x, header=T, sep=',', na.strings = 'na'
 dfData = do.call(rbind, l)
 dim(dfData)
 
+## import covariates for healthy
+df = read.csv('dataExternal/healthyData/healthyCovariates.csv', header=T)
+i = match(as.character(dfData$Patient.ID), as.character(df$ID))
+dfData = cbind(dfData, df[i,-1])
+
 dfPatient = read.csv('dataExternal/healthyData/merged.files_and_annotations.csv',
                      header=T, sep='\t', na.strings = c('na', 'NA'))
 
@@ -52,7 +57,8 @@ f = is.na(dfData$Rd.score)
 dfData = dfData[!f,]
 
 dfData = droplevels.data.frame(dfData)
-
+dim(dfData)
+str(dfData)
 ####### data distribution
 pairs(dfData[,-c(1, 7, 8, 11)], pch=20)
 
@@ -100,18 +106,20 @@ xyplot(Rd.score ~ Cell.type | Stimulation, data=dfData, type=c('g', 'p'), pch=19
 x = dfData$Cell.count
 hist(x)
 quantile(x)
-cut.pts = cut(x, breaks = quantile(x, probs = 0:10/10), include.lowest = T, labels = 0:9)
-densityplot(~ dfData$Rd.score | cut.pts)
-dfData$Cell.count.grps = cut.pts
-
-f = as.character(cut.pts)
-f[f %in% c('0')] = 'g1'
-f[f != 'g1'] = 'g2'
-
-densityplot(~ dfData$Rd.score | f)
-
-## choose a minimum cutoff of 30ish cells
-dfData = dfData[dfData$Cell.count.grps != '0',]
+cut.pts = 10; #cut(x, breaks = quantile(x, probs = 0:10/10), include.lowest = T, labels = 0:9)
+# remove any samples with less than 10 cells
+# densityplot(~ dfData$Rd.score | cut.pts)
+# dfData$Cell.count.grps = cut.pts
+# 
+# f = as.character(cut.pts)
+# f[f %in% c('0')] = 'g1'
+# f[f != 'g1'] = 'g2'
+# 
+# densityplot(~ dfData$Rd.score | f)
+# 
+# ## choose a minimum cutoff of 30ish cells
+# dfData = dfData[dfData$Cell.count.grps != '0',]
+dfData = dfData[dfData$Cell.count >= 10,]
 
 xyplot(Rd.score ~ Stimulation | Cell.type, data=dfData, type=c('g', 'p'), pch=19, groups=Transcription.factor,
        #index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
@@ -198,7 +206,7 @@ xyplot(Rd.score ~ Treatment | fModule, data=dfData[dfData$Visit..Week. == 'Basel
 library(LearnBayes)
 set.seed(123) # for replication
 
-ivResp = dfData$Rd.score
+ivResp = dfData[dfData$Visit..Week. == 'Baseline', 'Rd.score']# dfData$Rd.score
 ivResp = ivResp+abs(min(ivResp))+1
 ivResp = log(ivResp)
 summary(ivResp)
@@ -355,7 +363,7 @@ yresp = density(ivResp)
 yresp$y = yresp$y/max(yresp$y)
 plot(yresp, xlab='', main='Fitted distribution', ylab='scaled density', lwd=2, ylim=c(0, 1.1))
 temp = apply(mDraws, 2, function(x) {x = density(x)
-#x$y = x$y/max(x$y)
+x$y = x$y/max(x$y)
 lines(x, col='darkgrey', lwd=0.6)
 })
 lines(yresp, lwd=2)
