@@ -30,13 +30,35 @@ str(dfData)
 
 ## make a plot of the raw data
 ## format before plotting
-d2 = dfData[,c('Rd.score', 'Modules')]
+d2 = dfData[,c('Rd.score', 'Modules', 'Age')]
 f = strsplit(as.character(d2$Modules), ':')
 d2 = cbind(d2, do.call(rbind, f))
-colnames(d2) = c(colnames(d2)[1:2], c('cells', 'stimulation', 'treatment'))
+colnames(d2) = c(colnames(d2)[1:3], c('cells', 'stimulation', 'treatment'))
 
 dotplot(treatment ~ Rd.score | cells:stimulation, data=d2, groups=treatment, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...),
         par.strip.text=list(cex=0.6), main='Raw data 41 Modules at baseline', xlab='Raw RD Score')
+
+xyplot(Rd.score ~ Age | cells:stimulation, data=d2, 
+       index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
+       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), groups=treatment, type=c('smooth'),
+       auto.key=list(columns=2), ylim=c(0, 2))
+
+xyplot(Rd.score ~ Age | cells:stimulation, data=d2, type=c('r', 'g'), pch=19, cex=0.6,
+       index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
+       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), groups=treatment, auto.key=list(columns=2),
+       ylim=c(0, 2))
+
+## population level effect of age
+xyplot(Rd.score ~ Age, data=d2, type=c('r', 'g', 'p'), pch=19, cex=0.6,
+       #index.cond = function(x,y) coef(lm(y ~ x))[1], #aspect='xy',# layout=c(8,2), 
+       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), groups=treatment, auto.key=list(columns=2),
+       ylim=c(0, 2))
+
+xyplot(Rd.score ~ Age, data=d2, type=c('smooth'), pch=19, cex=0.6,
+       #index.cond = function(x,y) coef(lm(y ~ x))[1], #aspect='xy',# layout=c(8,2), 
+       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), groups=treatment, auto.key=list(columns=2),
+       ylim=c(0, 2))
+
 
 ## log the data before modelling
 ivResp = dfData$Rd.score
