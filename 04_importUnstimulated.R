@@ -8,6 +8,11 @@ l = lapply(csFiles, function(x) read.csv(x, header=T, sep=',', na.strings = 'na'
 dfData = do.call(rbind, l)
 dim(dfData)
 
+## import covariates for healthy
+df = read.csv('dataExternal/healthyData/healthyCovariates.csv', header=T)
+i = match(as.character(dfData$Patient.ID), as.character(df$ID))
+dfData = cbind(dfData, df[i,-1])
+
 dfPatient = read.csv('dataExternal/healthyData/merged.files_and_annotations.csv',
                      header=T, sep='\t', na.strings = c('na', 'NA'))
 
@@ -92,18 +97,19 @@ hist(dfData$Median.internalization.score)
 x = dfData$Cell.count
 hist(x)
 quantile(x)
-cut.pts = cut(x, breaks = quantile(x, probs = 0:10/10), include.lowest = T, labels = 0:9)
-densityplot(~ dfData$Median.internalization.score | cut.pts)
-dfData$Cell.count.grps = cut.pts
-
-f = as.character(cut.pts)
-f[f %in% c('0')] = 'g1'
-f[f != 'g1'] = 'g2'
-
-densityplot(~ dfData$Median.internalization.score | f)
-
-## choose a minimum cutoff of 30ish cells
-dfData = dfData[dfData$Cell.count.grps != '0',]
+cut.pts = 10; #cut(x, breaks = quantile(x, probs = 0:10/10), include.lowest = T, labels = 0:9)
+# densityplot(~ dfData$Median.internalization.score | cut.pts)
+# dfData$Cell.count.grps = cut.pts
+# 
+# f = as.character(cut.pts)
+# f[f %in% c('0')] = 'g1'
+# f[f != 'g1'] = 'g2'
+# 
+# densityplot(~ dfData$Median.internalization.score | f)
+# 
+# ## choose a minimum cutoff of 30ish cells
+# dfData = dfData[dfData$Cell.count.grps != '0',]
+dfData = dfData[dfData$Cell.count >= 10,]
 
 xyplot(Median.internalization.score ~ Treatment | Cell.type+Transcription.factor, data=dfData, type=c('g', 'p'), pch=19,
        #index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
@@ -123,7 +129,7 @@ xyplot(Median.internalization.score ~ Treatment | Cell.type, data=dfData, type=c
        par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), auto.key = list(columns=3))
 
 ## do we drop modules with low average score?
-fModule = factor(dfData$Cell.type)
+fModule = factor(dfData$Cell.type:dfData$Transcription.factor)
 nlevels(fModule)
 i = tapply(dfData$Median.internalization.score, fModule, mean)
 summary(i)
@@ -137,7 +143,7 @@ summary(i)
 # dfData = droplevels.data.frame(dfData)
 
 # make modules again
-fModule = factor(dfData$Cell.type)
+fModule = factor(dfData$Cell.type:dfData$Transcription.factor)
 nlevels(fModule)
 
 dfData$fModule = fModule
@@ -174,7 +180,7 @@ lp(start, lData)
 ## try the laplace function from LearnBayes
 fit = laplace(lp, start, lData)
 fit
-
+se = sqrt(diag(fit$var))
 ### lets use the results from laplace and SIR sampling with a t proposal density
 ### to take a sample
 tpar = list(m=fit$mode, var=fit$var*2, df=3)
