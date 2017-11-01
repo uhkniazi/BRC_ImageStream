@@ -61,6 +61,7 @@ xyplot(Rd.score ~ Age, data=d2, type=c('smooth'), pch=19, cex=0.6,
 
 
 ## log the data before modelling
+dfData.original = dfData
 ivResp = dfData$Rd.score
 iShift = min(ivResp)+1
 ivResp = ivResp+abs(min(ivResp))+1
@@ -93,7 +94,7 @@ lStanData = list(Ntotal=nrow(dfData), Nclusters1=nlevels(dfData$Patient.ID), Ncl
                  Ncol=1, #X=m,
                  y=dfData$Rd.score, gammaShape=l$shape, gammaRate=l$rate)
 
-fit.stan = sampling(stanDso, data=lStanData, iter=2000, chains=4, pars=c('betas', 'sigmaRan1', 'sigmaRan2',
+fit.stan = sampling(stanDso, data=lStanData, iter=4000, chains=4, pars=c('betas', 'sigmaRan1', 'sigmaRan2',
                                                                          'sigmaPop','nu', 'rGroupsJitter1', 'rGroupsJitter2'),
                     cores=4)#, control=list(adapt_delta=0.99, max_treedepth = 15))
 print(fit.stan, c('betas', 'sigmaRan1', 'sigmaRan2', 'sigmaPop', 'nu'), digits=3)
@@ -119,11 +120,12 @@ getDifference = function(ivData, ivBaseline){
 }
 
 ## split the data into the comparisons required
-d = data.frame(cols=1:ncol(mModules), mods=levels(dfData$Modules))
+d = data.frame(cols=1:ncol(mModules), mods=levels(dfData$Modules), rawAverage=tapply(dfData.original$Rd.score, 
+                                                                                     dfData.original$Modules, FUN = mean))
 ## split this factor into sub factors
 f = strsplit(as.character(d$mods), ':')
 d = cbind(d, do.call(rbind, f))
-colnames(d) = c(colnames(d)[1:2], c('cells', 'stimulation', 'treatment'))
+colnames(d) = c(colnames(d)[1:3], c('cells', 'stimulation', 'treatment'))
 d$split = factor(d$cells:d$stimulation)
 
 ## this data frame is a mapper for each required comparison
@@ -134,7 +136,8 @@ l = lapply(ldfMap, function(x) {
   c = x$cols
   d = getDifference(ivData = mModules[,c[2]], ivBaseline = mModules[,c[1]])
   r = data.frame(cells= as.character(x$cells[1]), stimulation=as.character(x$stimulation[1]), coef.healthy=mean(mModules[,c[1]]), 
-        coef.patient=mean(mModules[,c[2]]), zscore=d$z, pvalue=d$p)
+        coef.patient=mean(mModules[,c[2]]), zscore=d$z, pvalue=d$p, rawAverage.healthy=x$rawAverage[1], 
+        rawAverage.patient=x$rawAverage[2])
   return(format(r, digi=3))
 })
 
