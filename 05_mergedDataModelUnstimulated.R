@@ -41,13 +41,12 @@ xyplot(Median.internalization.score ~ Age | cells:transcription.factor, data=d2,
        index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
        par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), groups=treatment, auto.key=list(columns=2))
 
-## shift the data before modelling
+# model the raw data, no need for shifting or log transformation
 dfData.original = dfData
 ivResp = dfData$Median.internalization.score
 # iShift = min(ivResp)
 # ivResp = ivResp+abs(min(ivResp))+0.1
 # dfData$Median.internalization.score = ivResp
-
 
 library(lme4)
 fit.lme1 = lmer(Median.internalization.score ~ 1 + (1 | Modules) + (1 | Patient.ID), data=dfData, REML=F)
@@ -220,11 +219,12 @@ getDifference = function(ivData, ivBaseline){
 }
 
 ## split the data into the comparisons required
-d = data.frame(cols=1:ncol(mModules), mods=levels(dfData$Modules))
+d = data.frame(cols=1:ncol(mModules), mods=levels(dfData$Modules), rawAverage=tapply(dfData.original$Median.internalization.score, 
+                                                                                   dfData.original$Modules, FUN = mean))
 ## split this factor into sub factors
 f = strsplit(as.character(d$mods), ':')
 d = cbind(d, do.call(rbind, f))
-colnames(d) = c(colnames(d)[1:2], c('cells', 'transcription.factor', 'treatment'))
+colnames(d) = c(colnames(d)[1:3], c('cells', 'transcription.factor', 'treatment'))
 d$split = factor(d$cells:d$transcription.factor)
 
 ## this data frame is a mapper for each required comparison
@@ -235,7 +235,8 @@ l = lapply(ldfMap, function(x) {
   c = x$cols
   d = getDifference(ivData = mModules[,c[2]], ivBaseline = mModules[,c[1]])
   r = data.frame(cells= as.character(x$cells[1]), transcription.factor=as.character(x$transcription.factor[1]), coef.healthy=mean(mModules[,c[1]]), 
-        coef.patient=mean(mModules[,c[2]]), zscore=d$z, pvalue=d$p)
+        coef.patient=mean(mModules[,c[2]]), zscore=d$z, pvalue=d$p, rawAverage.healthy=x$rawAverage[1], 
+        rawAverage.patient=x$rawAverage[2])
   return(format(r, digi=3))
 })
 
@@ -251,7 +252,7 @@ d2 = cbind(d2, do.call(rbind, f))
 colnames(d2) = c(colnames(d2)[1:2], c('cells', 'transcription.factor', 'treatment'))
 
 dotplot(treatment ~ Median.internalization.score | cells:transcription.factor, data=d2, groups=treatment, panel=function(x, y, ...) panel.bwplot(x, y, pch='|', ...),
-        par.strip.text=list(cex=0.6), main='Raw data 30 Modules at baseline', xlab='Shifted Med int Score')
+        par.strip.text=list(cex=0.6), main='Raw data 30 Modules at baseline', xlab='Raw Med int Score')
 
 ## format data for plotting
 m = colMeans(mModules)
@@ -264,35 +265,7 @@ d = cbind(d, do.call(rbind, f))
 colnames(d) = c(colnames(d)[1:5], c('cells', 'transcription.factor', 'treatment'))
 
 dotplot(treatment ~ m+s1+s2 | cells:transcription.factor, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
-        par.strip.text=list(cex=0.6), main='Regression Coeff 30 Modules at baseline', xlab='Model estimated Average Log Med int Score')
-
-
-## convert coefficients to natural scale / i.e. exponent
-## format data for plotting
-m2 = exp(mModules)
-m = colMeans(m2)
-s = apply(m2, 2, sd)*1.96
-d = data.frame(m, s, s1=m+s, s2=m-s)
-d$mods = levels(dfData$Modules)
-## split this factor into sub factors
-f = strsplit(d$mods, ':')
-d = cbind(d, do.call(rbind, f))
-colnames(d) = c(colnames(d)[1:5], c('cells', 'transcription.factor', 'treatment'))
-
-dotplot(treatment ~ m+s1+s2 | cells:transcription.factor, data=d, panel=llines(d$s1, d$s2), cex=0.6,
-        par.strip.text=list(cex=0.7), main='Regression Coeff 30 Modules at baseline', xlab='Model estimated Average Med int Score')
-
-
-
-
-
-
-
-### get p.values for contrasts of interest
-
-
-
-
+        par.strip.text=list(cex=0.6), main='Regression Coeff 30 Modules at baseline', xlab='Model estimated Average Med int Score')
 
 ## example of xyplot with confidence interval bars
 # xyplot(m ~ treatment | cells:stimulation, data=d, 
