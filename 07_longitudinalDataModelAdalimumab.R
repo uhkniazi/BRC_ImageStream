@@ -1,7 +1,7 @@
-# Name: 07_longitudinalDataModel.R
+# Name: 07_longitudinalDataModelAdalimumab.R
 # Auth: umar.niazi@kcl.ac.uk
-# Date: 09/10/2017
-# Desc: imports the longitudinal data and fits a model
+# Date: 17/11/2017
+# Desc: imports the longitudinal data and fits a model for treatment 1
 
 library(lattice)
 
