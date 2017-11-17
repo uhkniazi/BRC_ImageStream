@@ -13,7 +13,7 @@ gammaShRaFromModeSD = function( mode , sd ) {
   return( list( shape=shape , rate=rate ) )
 }
 
-dfData = read.csv('dataExternal/healthyData/diseasedData.csv', header=T)
+dfData = read.csv('dataExternal/healthyData/diseasedDataAdalimumab.csv', header=T)
 
 dfData$Visit..Week. = factor(dfData$Visit..Week., levels=c('Baseline', 
                                                            'Week 1', 'Week 4',
@@ -21,106 +21,182 @@ dfData$Visit..Week. = factor(dfData$Visit..Week., levels=c('Baseline',
 
 xyplot(Rd.score ~ time | fModule, data=dfData, type=c('smooth'),
        index.cond = function(x,y) coef(lm(y ~ x))[1], #aspect='xy',# layout=c(8,2),
-       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), groups=dfData$Treatment,
-       auto.key = list(columns=2))
+       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)))
 
 xyplot(Rd.score ~ time | fModule, data=dfData, type=c('r'),
        index.cond = function(x,y) coef(lm(y ~ x))[1], #aspect='xy',# layout=c(8,2),
-       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), groups=dfData$Treatment,
-       auto.key = list(columns=2))
+       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)))
 
 xyplot(Rd.score ~ Visit..Week. | fModule, data=dfData, type=c('p'), pch=20,
        index.cond = function(x,y) coef(lm(y ~ x))[1], #aspect='xy',# layout=c(8,2),
-       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), groups=dfData$Treatment,
-       auto.key = list(columns=2))
+       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)))
 
-dotplot(Treatment ~ Rd.score | fModule:Visit..Week., data=dfData, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
+dotplot(Visit..Week. ~ Rd.score | fModule, data=dfData, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
         par.strip.text=list(cex=0.5))
 
-dotplot(Treatment ~ Rd.score | fModule:Visit..Week., data=dfData[dfData$Visit..Week. == 'Baseline',], panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
-        par.strip.text=list(cex=0.7))
-
-dotplot(Treatment ~ Rd.score | fModule:Visit..Week., data=dfData[dfData$Visit..Week. == 'Week 1',], panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
-        par.strip.text=list(cex=0.7))
-
-dotplot(Treatment ~ Rd.score | fModule:Visit..Week., data=dfData[dfData$Visit..Week. == 'Week 4',], panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
-        par.strip.text=list(cex=0.7))
-
-dotplot(Treatment ~ Rd.score | fModule:Visit..Week., data=dfData[dfData$Visit..Week. == 'Week 12',], panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
-        par.strip.text=list(cex=0.7))
-
-# i = sample(1:nrow(dfData), 1000)
-# dfData = dfData[i,]
-# dim(dfData)
-
-#dotplot(Treatment ~ Rd.score | Visit..Week.:Cell.type, data=dfData, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b')
-## make a plot of the raw data
-## format before plotting
-# d2 = dfData[,c('Rd.score',  'Treatment', 'fModule')]
-# f = strsplit(as.character(d2$fModule), ':')
-# d2 = cbind(d2, do.call(rbind, f))
-# colnames(d2) = c(colnames(d2)[1:3], c('cells', 'stimulation'))
-# 
-# dotplot(Treatment ~ Rd.score | cells:stimulation, data=d2, groups=Treatment, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...),
-#         par.strip.text=list(cex=0.6), main='Raw data 41 Modules at baseline', xlab='Raw RD Score')
 
 
-## log the data before modelling
-ivResp = dfData$Rd.score
-# iShift = min(ivResp)+2
-# ivResp = ivResp+abs(min(ivResp))+2
-# ivResp = log(ivResp)
-# dfData$Rd.score = ivResp
-
+## use data on original scale
 ## create a new factor with a combinations of factors of interest
-f = factor(dfData$Treatment:dfData$fModule:dfData$Visit..Week.)
+f = factor(dfData$fModule:dfData$Visit..Week.)
+nlevels(f)
+table(f)
 dfData$Coef = f
 densityplot(dfData$Rd.score, groups=dfData$Coef)
 densityplot(dfData$Rd.score)
 
-library(flexmix)
-fit.flex = flexmix(Rd.score ~ Coef, data=dfData, k=2)
-#fit.flex = flexmix(.~.|Treatment, data=dfData, k=2, model=FLXMRlmer(Rd.score ~ Treatment, random=~ 1))
-summary(fit.flex)
-## fitted coefficients
-parameters(fit.flex)
+dfData = dfData[order(dfData$Patient.ID, dfData$Coef),]
+dfData = droplevels.data.frame(dfData)
+str(dfData)
+
+#### fit mixed effect model
+library(lme4)
+fit.lme1 = lmer(Rd.score ~ 1 + (1 | Coef) + (1 | Patient.ID), data=dfData, REML=F)
+summary(fit.lme1)
+
 
 library(rstan)
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
-stanDso = rstan::stan_model(file='fitTMixtureRandomEffects.stan')
 
+stanDso = rstan::stan_model(file='tResponse2RandomEffectsNoFixed.stan')
+
+## calculate hyperparameters for variance of coefficients
 l = gammaShRaFromModeSD(sd(dfData$Rd.score), 2*sd(dfData$Rd.score))
-# m = model.matrix(Rd.score ~ Transcription.factor, data=dfData)
 
-
+### try a t model without mixture
 lStanData = list(Ntotal=nrow(dfData), Nclusters1=nlevels(dfData$Coef), Nclusters2=nlevels(dfData$Patient.ID),
-                 Nclusters3=nlevels(dfData$Gender),
                  NgroupMap1=as.numeric(dfData$Coef), NgroupMap2=as.numeric(dfData$Patient.ID),
-                 NgroupMap3=as.numeric(dfData$Gender),
-                 y=dfData$Rd.score, iMixtures=2,
-                 gammaShape=l$shape, gammaRate=l$rate)
-         
-# ### try a t model without mixture and compare
-# lStanData = list(Ntotal=nrow(dfData), Nclusters1=nlevels(dfData$Coef), Nclusters2=nlevels(dfData$Patient.ID), 
-#                  NgroupMap1=as.numeric(dfData$Coef), NgroupMap2=as.numeric(dfData$Patient.ID), 
-#                  Ncol=1, #X=m,
-#                  y=dfData$Rd.score, gammaShape=l$shape, gammaRate=l$rate)
+                 Ncol=1, 
+                 y=dfData$Rd.score, gammaShape=l$shape, gammaRate=l$rate)
+
+fit.stan = sampling(stanDso, data=lStanData, iter=5000, chains=2, pars=c('betas', 'sigmaRan1', 'sigmaRan2', 'nu',
+                                                                         'sigmaPop','mu', 'rGroupsJitter1', 'rGroupsJitter2'),
+                    cores=2)#, control=list(adapt_delta=0.99, max_treedepth = 15))
+print(fit.stan, c('betas', 'sigmaRan1', 'sigmaRan2', 'sigmaPop', 'nu'), digits=3)
+
+##############################
+########## model checks section
+###### some model checks
+### check model fit
+m = extract(fit.stan, 'mu')
+names(m)
+dim(m$mu)
+fitted = apply(m$mu, 2, mean)
+
+plot(dfData$Rd.score, fitted, pch=20, cex=0.5)
+plot(dfData$Rd.score, dfData$Rd.score - fitted, pch=20, cex=0.5)
+iResid = (dfData$Rd.score - fitted)
+
+par(mfrow=c(1,2))
+plot(fitted, iResid, pch=20, cex=0.5, main='t model')
+lines(lowess(fitted, iResid), col=2, lwd=2)
+
+plot(predict(fit.lme1), resid(fit.lme1), pch=20, cex=0.5, main='normal')
+lines(lowess(predict(fit.lme1), resid(fit.lme1)), col=2, lwd=2)
+
+plot(fitted, predict(fit.lme1), pch=20, cex=0.5)
+## the normal model residuals have a stronger curvature and t model has a slight curvature
+
+### plot the posterior predictive values
+m = extract(fit.stan, c('mu', 'nu', 'sigmaPop'))
+i = sample(1:5000, 2000)
+muSample = m$mu[i,]
+nuSample = m$nu[i]
+sigSample = m$sigmaPop[i]
+
+## t sampling functions
+dt_ls = function(x, df, mu, a) 1/a * dt((x - mu)/a, df)
+rt_ls <- function(n, df, mu, a) rt(n,df)*a + mu
+
+## use point-wise predictive approach to sample a new value from this data
+ivResp = dfData$Rd.score
+mDraws = matrix(NA, nrow = length(ivResp), ncol=2000)
+
+# rppd = function(index){
+#   f = muSample[,index]
+#   return(rt_ls(length(f), nuSample, f, sigSample))
+# }
+
+for (i in 1:ncol(mDraws)){
+  mDraws[,i] = rt_ls(length(ivResp), nuSample[i], muSample[i,], sigSample[i])
+}
+
 # 
-# fit.stan = sampling(stanDso, data=lStanData, iter=1000, chains=2, pars=c('betas', 'sigmaRan1', 'sigmaRan2', 'nu',
-#                                                                          'sigmaPop','mu', 'rGroupsJitter1', 'rGroupsJitter2'),
-#                     cores=2)#, control=list(adapt_delta=0.99, max_treedepth = 15))
-# print(fit.stan, c('betas', 'sigmaRan1', 'sigmaRan2', 'sigmaPop', 'nu'), digits=3)
+# temp = sapply(1:length(ivResp), function(x) rppd(x))
+# mDraws = t(temp)
 
-fit.stan = sampling(stanDso, data=lStanData, iter=500, chains=2, cores=2,
-                    pars=c('mu', 'sigma', 'iMixWeights', 'nu',
-                           'rGroupsJitter1', 'sigmaRan1',
-                           'rGroupsJitter2', 'sigmaRan2',
-                           'rGroupsJitter3', 'sigmaRan3',
-                           'muFitted')) ####, control=list(adapt_delta=0.99, max_treedepth = 15))
+yresp = density(ivResp)
+plot(yresp, xlab='', main='Fitted distribution', ylab='density', lwd=2)#, ylim=c(0, 1))
+temp = apply(mDraws, 2, function(x) {x = density(x)
+#x$y = x$y/max(x$y)
+lines(x, col='red', lwd=0.6)
+})
 
-print(fit.stan, c('mu', 'sigma', 'iMixWeights', 'nu',
-                  'sigmaRan1', 'sigmaRan2', 'sigmaRan3'), digits=3)
+## calculate bayesian p-value for this test statistic
+getPValue = function(Trep, Tobs){
+  left = sum(Trep <= Tobs)/length(Trep)
+  right = sum(Trep >= Tobs)/length(Trep)
+  return(min(left, right))
+}
+## define some test quantities to measure the lack of fit
+## define a test quantity T(y, theta)
+## variance
+T1_var = function(Y) return(var(Y))
+# ## is the model adequate except for the extreme tails
+# T1_symmetry = function(Y, th){
+#   Yq = quantile(Y, c(0.90, 0.10))
+#   return(abs(Yq[1]-th) - abs(Yq[2]-th))
+# } 
+
+## min quantity
+T1_min = function(Y){
+  return(min(Y))
+} 
+
+## max quantity
+T1_max = function(Y){
+  return(max(Y))
+} 
+
+## mean quantity
+T1_mean = function(Y){
+  return(mean(Y))
+} 
+
+## mChecks
+mChecks = matrix(NA, nrow=5, ncol=2)
+rownames(mChecks) = c('Variance', 'Symmetry', 'Max', 'Min', 'Mean')
+colnames(mChecks) = c('t', 'gamma')
+
+t1 = apply(mDraws, 2, T1_var)
+mChecks['Variance', 1] = getPValue(t1, var(ivResp))
+
+## testing for outlier detection i.e. the minimum value show in the histograms earlier
+t1 = apply(mDraws, 2, T1_min)
+t2 = T1_min(ivResp)
+mChecks['Min',1] = getPValue(t1, t2)
+
+## maximum value
+t1 = apply(mDraws, 2, T1_max)
+t2 = T1_max(ivResp)
+mChecks['Max', 1] = getPValue(t1, t2)
+
+## mean value
+t1 = apply(mDraws, 2, T1_mean)
+t2 = T1_mean(ivResp)
+mChecks['Mean', 1] = getPValue(t1, t2)
+
+mChecks
+
+################ end model checks
+
+
+
+
+
+
+
 
 ## get the coefficient of interest - Modules in our case from the random coefficients section
 mModules = extract(fit.stan)$rGroupsJitter1
