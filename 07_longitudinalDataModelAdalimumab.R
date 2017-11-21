@@ -70,7 +70,7 @@ lStanData = list(Ntotal=nrow(dfData), Nclusters1=nlevels(dfData$Coef), Nclusters
                  Ncol=1, 
                  y=dfData$Rd.score, gammaShape=l$shape, gammaRate=l$rate)
 
-fit.stan = sampling(stanDso, data=lStanData, iter=5000, chains=2, pars=c('betas', 'sigmaRan1', 'sigmaRan2', 'nu',
+fit.stan = sampling(stanDso, data=lStanData, iter=10000, chains=2, pars=c('betas', 'sigmaRan1', 'sigmaRan2', 'nu',
                                                                          'sigmaPop','mu', 'rGroupsJitter1', 'rGroupsJitter2'),
                     cores=2)#, control=list(adapt_delta=0.99, max_treedepth = 15))
 print(fit.stan, c('betas', 'sigmaRan1', 'sigmaRan2', 'sigmaPop', 'nu'), digits=3)
@@ -100,7 +100,7 @@ plot(fitted, predict(fit.lme1), pch=20, cex=0.5)
 
 ### plot the posterior predictive values
 m = extract(fit.stan, c('mu', 'nu', 'sigmaPop'))
-i = sample(1:5000, 2000)
+i = sample(1:10000, 5000)
 muSample = m$mu[i,]
 nuSample = m$nu[i]
 sigSample = m$sigmaPop[i]
@@ -191,20 +191,13 @@ mChecks
 
 ################ end model checks
 
-
-
-
-
-
-
-
 ## get the coefficient of interest - Modules in our case from the random coefficients section
 mModules = extract(fit.stan)$rGroupsJitter1
 dim(mModules)
 ## get the intercept at population level
-#iIntercept = extract(fit.stan)$betas[,1]
+iIntercept = extract(fit.stan)$betas[,1]
 ## add the intercept to each random effect variable, to get the full coefficient
-#mModules = sweep(mModules, 1, iIntercept, '+')
+mModules = sweep(mModules, 1, iIntercept, '+')
 
 ## function to calculate statistics for differences between coefficients
 getDifference = function(ivData, ivBaseline){
@@ -219,28 +212,77 @@ getDifference = function(ivData, ivBaseline){
 }
 
 ## split the data into the comparisons required
-d = data.frame(cols=1:ncol(mModules), mods=levels(dfData$Coef))
+d = data.frame(cols=1:ncol(mModules), mods=levels(dfData$Coef), rawAverage=tapply(dfData$Rd.score, dfData$Coef, FUN = mean))
 ## split this factor into sub factors
 f = strsplit(as.character(d$mods), ':')
 d = cbind(d, do.call(rbind, f))
-colnames(d) = c(colnames(d)[1:2], c('drug', 'cells', 'stimulation', 'time'))
-d$split = factor(d$cells:d$stimulation:d$time)
+colnames(d) = c(colnames(d)[1:3], c('cells', 'stimulation', 'time'))
+## create the comparisons/contrasts required
+d$split = factor(d$cells:d$stimulation)
+head(d)
 
+########## repeat for various contrasts of interest
+### week 1 vs baseline
+d1 = d[d$time %in% c('Baseline', 'Week 1'),]
+d1 = droplevels.data.frame(d1)
 ## this data frame is a mapper for each required comparison
-ldfMap = split(d, f = d$split)
+ldfMap = split(d1, f = d1$split)
 
 ## get a p-value for each comparison
 l = lapply(ldfMap, function(x) {
   c = x$cols
   d = getDifference(ivData = mModules[,c[2]], ivBaseline = mModules[,c[1]])
-  r = data.frame(module= as.character(x$split[1]), coef.adal=mean(mModules[,c[1]]), 
-        coef.ustek=mean(mModules[,c[2]]), zscore=d$z, pvalue=d$p)
+  r = data.frame(module= as.character(x$split[1]), coef.baseline=mean(mModules[,c[1]]), 
+        coef.week1=mean(mModules[,c[2]]), zscore=d$z, pvalue=d$p, rawAverage.baseline=x$rawAverage[1],
+        rawAverage.week1=x$rawAverage[2])
   return(format(r, digi=3))
 })
 
 dfResults = do.call(rbind, l)
 dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
-write.csv(dfResults, file='Results/longitudinalDataResults.csv', row.names = F)
+write.csv(dfResults, file='Results/longitudinalDataResults_week1VSbaseline_Adalimumab.csv', row.names = F)
+
+### week 4 vs baseline
+d1 = d[d$time %in% c('Baseline', 'Week 4'),]
+d1 = droplevels.data.frame(d1)
+head(d1)
+## this data frame is a mapper for each required comparison
+ldfMap = split(d1, f = d1$split)
+ldfMap[1:2]
+## get a p-value for each comparison
+l = lapply(ldfMap, function(x) {
+  c = x$cols
+  d = getDifference(ivData = mModules[,c[2]], ivBaseline = mModules[,c[1]])
+  r = data.frame(module= as.character(x$split[1]), coef.baseline=mean(mModules[,c[1]]), 
+                 coef.week4=mean(mModules[,c[2]]), zscore=d$z, pvalue=d$p, rawAverage.baseline=x$rawAverage[1],
+                 rawAverage.week4=x$rawAverage[2])
+  return(format(r, digi=3))
+})
+
+dfResults = do.call(rbind, l)
+dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
+write.csv(dfResults, file='Results/longitudinalDataResults_week4VSbaseline_Adalimumab.csv', row.names = F)
+
+### week 12 vs baseline
+d1 = d[d$time %in% c('Baseline', 'Week 12'),]
+d1 = droplevels.data.frame(d1)
+head(d1)
+## this data frame is a mapper for each required comparison
+ldfMap = split(d1, f = d1$split)
+ldfMap[1:2]
+## get a p-value for each comparison
+l = lapply(ldfMap, function(x) {
+  c = x$cols
+  d = getDifference(ivData = mModules[,c[2]], ivBaseline = mModules[,c[1]])
+  r = data.frame(module= as.character(x$split[1]), coef.baseline=mean(mModules[,c[1]]), 
+                 coef.week12=mean(mModules[,c[2]]), zscore=d$z, pvalue=d$p, rawAverage.baseline=x$rawAverage[1],
+                 rawAverage.week12=x$rawAverage[2])
+  return(format(r, digi=3))
+})
+
+dfResults = do.call(rbind, l)
+dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
+write.csv(dfResults, file='Results/longitudinalDataResults_week12VSbaseline_Adalimumab.csv', row.names = F)
 
 ## make the plots for the raw data and fitted data
 ## format data for plotting
@@ -248,13 +290,15 @@ d2 = dfData[,c('Rd.score', 'Coef')]
 #f = strsplit(as.character(d2$Modules), ':')
 f = strsplit(as.character(d2$Coef), ':')
 d2 = cbind(d2, do.call(rbind, f))
-colnames(d2) = c(colnames(d2)[1:2], c('drug', 'cells', 'stimulation', 'time'))
+colnames(d2) = c(colnames(d2)[1:2], c('cells', 'stimulation', 'time'))
+head(d2)
+levels(d2$time)
+d2$time = factor(d2$time, levels=c('Baseline', 'Week 1', 'Week 4', 'Week 12'))
+nlevels(factor(d2$cells:d2$stimulation))
+nlevels(d2$Coef)
 
-d2 = cbind(d2, do.call(rbind, f))
-colnames(d2) = c(colnames(d2)[1:2], c('cells', 'stimulation', 'treatment'))
-
-dotplot(drug ~ Rd.score | cells:stimulation:time, data=d2, groups=drug, panel=function(x, y, ...) panel.bwplot(x, y, pch='|', ...),
-        par.strip.text=list(cex=0.6), main='Raw data 164 Comparisons', xlab='Log RD Score')
+dotplot(time ~ Rd.score | cells:stimulation, data=d2, panel=function(x, y, ...) panel.bwplot(x, y, pch='|', ...),
+        par.strip.text=list(cex=0.6), main='Raw data 156 Groups by time in 39 Modules', xlab='RD Score')
 
 ## format data for plotting
 m = colMeans(mModules)
@@ -264,10 +308,11 @@ d$mods = levels(dfData$Coef)
 ## split this factor into sub factors
 f = strsplit(d$mods, ':')
 d = cbind(d, do.call(rbind, f))
-colnames(d) = c(colnames(d)[1:5], c('drug', 'cells', 'stimulation', 'time'))
+colnames(d) = c(colnames(d)[1:5], c('cells', 'stimulation', 'time'))
+d$time = factor(d$time, levels=c('Baseline', 'Week 1', 'Week 4', 'Week 12'))
 
-dotplot(drug ~ m+s1+s2 | cells:stimulation:time, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
-        par.strip.text=list(cex=0.6), main='328 Regression Coeff 164 Comparisons', xlab='Model estimated Coefficients Log RD Score')
+dotplot(time ~ m+s1+s2 | cells:stimulation, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
+        par.strip.text=list(cex=0.6), main='156 Regression Coeff in 39 Modules', xlab='Model estimated Coefficients')
 
 
 ## convert coefficients to natural scale / i.e. exponent
