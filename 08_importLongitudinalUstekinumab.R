@@ -1,7 +1,7 @@
 # Name: 08_importLongitudinalUstekinumab.R
 # Auth: umar.niazi@kcl.ac.uk
-# Date: 17/11/2017
-# Desc: imports the longitudinal data for treatment 1
+# Date: 24/11/2017
+# Desc: imports the longitudinal data for treatment 2
 
 
 dfPatient = read.csv('dataExternal/healthyData/merged.files_and_annotations.csv',
@@ -542,5 +542,5 @@ lines(x, col='green', lwd=0.6)
 lines(density(ivResp))
 
 ### save the data for use
-write.csv(dfData, file='dataExternal/healthyData/diseasedDataAdalimumab.csv', row.names = F)
+write.csv(dfData, file='dataExternal/healthyData/diseasedDataUstekinumab.csv', row.names = F)
 
