@@ -20,7 +20,9 @@ dfData = dfData[dfData$Treatment == 'Adalimumab',]
 dfData = droplevels.data.frame(dfData)
 ## check stimulation factor
 levels(dfData$Stimulation)
-
+## use only untstimulated data
+dfData = dfData[dfData$Stimulation == 'Unstimulated',]
+dim(dfData)
 f = is.na(dfData$Median.internalization.score)
 table(f)
 dfData = dfData[!f,]
@@ -76,16 +78,17 @@ xyplot(Median.internalization.score ~ time | Cell.type:Transcription.factor:Stim
 # define the modules as used by previous analyst
 # in each cell type, the stimulation and transcription factors are nested 
 # apart from where Stimulation = Unstimulated
+# we are only using unstimulated
 nlevels(factor(dfData$Stimulation:dfData$Transcription.factor:dfData$Cell.type))
 nlevels(factor(dfData$Stimulation:dfData$Cell.type))
 nlevels(factor(dfData$Stimulation:dfData$Transcription.factor))
 nlevels(dfData$Stimulation)
-xtabs(~ dfData$Stimulation+dfData$Transcription.factor+dfData$Cell.type)
-# module is cell type + stimulation + transcription factor
+xtabs(~ dfData$Transcription.factor+dfData$Cell.type)
+# module is cell type  + transcription factor
 ## drop modules with average RD score < 0.3
-fModule = factor(dfData$Cell.type:dfData$Stimulation:dfData$Transcription.factor)
+fModule = factor(dfData$Cell.type:dfData$Transcription.factor)
 nlevels(fModule)
-## 120 levels
+## 30 levels
 # i = tapply(dfData$Median.internalization.score, fModule, mean)
 # summary(i)
 # i = which(i < 0.3)
@@ -98,7 +101,7 @@ nlevels(fModule)
 # dfData = droplevels.data.frame(dfData)
 
 # make modules again
-fModule = factor(dfData$Cell.type:dfData$Stimulation:dfData$Transcription.factor)
+fModule = factor(dfData$Cell.type:dfData$Transcription.factor)
 nlevels(fModule)
 
 dfData$fModule = fModule

@@ -216,9 +216,9 @@ d = data.frame(cols=1:ncol(mModules), mods=levels(dfData$Coef), rawAverage=tappl
 ## split this factor into sub factors
 f = strsplit(as.character(d$mods), ':')
 d = cbind(d, do.call(rbind, f))
-colnames(d) = c(colnames(d)[1:3], c('cells', 'stimulation', 'transcription.fac', 'time'))
+colnames(d) = c(colnames(d)[1:3], c('cells', 'transcription.fac', 'time'))
 ## create the comparisons/contrasts required
-d$split = factor(d$cells:d$stimulation:d$transcription.fac)
+d$split = factor(d$cells:d$transcription.fac)
 head(d)
 
 ########## repeat for various contrasts of interest
@@ -290,15 +290,15 @@ d2 = dfData[,c('Median.internalization.score', 'Coef')]
 #f = strsplit(as.character(d2$Modules), ':')
 f = strsplit(as.character(d2$Coef), ':')
 d2 = cbind(d2, do.call(rbind, f))
-colnames(d2) = c(colnames(d2)[1:2], c('cells', 'stimulation', 'transcription.fac', 'time'))
+colnames(d2) = c(colnames(d2)[1:2], c('cells', 'transcription.fac', 'time'))
 head(d2)
 levels(d2$time)
 d2$time = factor(d2$time, levels=c('Baseline', 'Week 1', 'Week 4', 'Week 12'))
-nlevels(factor(d2$cells:d2$stimulation:d2$transcription.fac))
+nlevels(factor(d2$cells:d2$transcription.fac))
 nlevels(d2$Coef)
 
-dotplot(time ~ Median.internalization.score | cells:stimulation:transcription.fac, data=d2, panel=function(x, y, ...) panel.bwplot(x, y, pch='|', ...),
-        par.strip.text=list(cex=0.5), main='Raw data 480 Groups by time in 120 Modules', xlab='MIS')
+dotplot(time ~ Median.internalization.score | cells:transcription.fac, data=d2, panel=function(x, y, ...) panel.bwplot(x, y, pch='|', ...),
+        par.strip.text=list(cex=0.7), main='Unstimulated MIS data 120 Groups by time in 30 Modules', xlab='MIS')
 
 ## format data for plotting
 m = colMeans(mModules)
@@ -308,11 +308,11 @@ d$mods = levels(dfData$Coef)
 ## split this factor into sub factors
 f = strsplit(d$mods, ':')
 d = cbind(d, do.call(rbind, f))
-colnames(d) = c(colnames(d)[1:5], c('cells', 'stimulation', 'transcription.fac', 'time'))
+colnames(d) = c(colnames(d)[1:5], c('cells', 'transcription.fac', 'time'))
 d$time = factor(d$time, levels=c('Baseline', 'Week 1', 'Week 4', 'Week 12'))
 
-dotplot(time ~ m+s1+s2 | cells:stimulation:transcription.fac, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
-        par.strip.text=list(cex=0.5), main='480 Regression Coeff in 120 Modules', xlab='Model estimated Coefficients')
+dotplot(time ~ m+s1+s2 | cells:transcription.fac, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
+        par.strip.text=list(cex=0.7), main='Unstimulated MIS 120 Regression Coeff in 30 Modules', xlab='Model estimated Coefficients')
 
 
 ## example of xyplot with confidence interval bars
