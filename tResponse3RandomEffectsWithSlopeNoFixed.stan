@@ -17,10 +17,10 @@ parameters {
   // parameters to estimate in the model
   real intercept; // population intercept
   real slope; // population slope
-  real<lower=0> sigmaRan1; // random effect standard deviation for group 1
-  real<lower=0> sigmaRan2; // random effect standard deviation for group 2
-  real<lower=0.1> sigmaRanSlope1; // random effect slope
-  real<lower=0> sigmaPop; // population standard deviation
+  real<lower=0.01> sigmaRan1; // random effect standard deviation for group 1
+  real<lower=0.01> sigmaRan2; // random effect standard deviation for group 2
+  real<lower=0.01> sigmaRanSlope1; // random effect slope
+  real<lower=0.01> sigmaPop; // population standard deviation
   vector[Nclusters1] rGroupsJitter1; // number of random intercept jitters for each level of cluster/group 1
   vector[Nclusters1] rGroupsSlope1; // number of random slope jitters for each level of cluster/group 1
   vector[Nclusters2] rGroupsJitter2; // number of random intercept jitters for each level of cluster/group 2
