@@ -19,7 +19,7 @@ dfData$Visit..Week. = factor(dfData$Visit..Week., levels=c('Baseline',
                                                            'Week 1', 'Week 4',
                                                            'Week 12'))
 
-xyplot(Rd.score ~ relativePASI | Cell.type:Transcription.factor:Stimulation, data=dfData, type=c('g', 'p', 'r'),
+xyplot(Rd.score ~ relativePASI | fModule, data=dfData, type=c('g', 'p', 'r'),
        ##index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2),
        par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), pch=20, groups=Visit..Week.,
        auto.key=list(columns=4))
@@ -53,7 +53,7 @@ lStanData = list(Ntotal=nrow(dfData), Nclusters1=nlevels(dfData$fBlock), Ncluste
                  Ncol=1, X=dfData$relativePASI, 
                  y=dfData$Rd.score, gammaShape=l$shape, gammaRate=l$rate)
 
-fit.stan = sampling(stanDso, data=lStanData, iter=1000, chains=2, pars=c('intercept', 'slope',
+fit.stan = sampling(stanDso, data=lStanData, iter=10000, chains=2, pars=c('intercept', 'slope',
                                                                           'sigmaRan1', 'sigmaRan2', 'sigmaRanSlope1',
                                                                           'sigmaPop', 'nu',
                                                                          'mu', 'rGroupsJitter1', 'rGroupsJitter2', 'rGroupsSlope1'),
@@ -82,7 +82,7 @@ lines(lowess(predict(fit.lme1), resid(fit.lme1)), col=2, lwd=2)
 
 plot(fitted, predict(fit.lme1), pch=20, cex=0.5)
 abline(0, 1, col='red')
-## the normal model residuals have a stronger curvature and t model has a no curvature
+
 
 ### plot the posterior predictive values
 m = extract(fit.stan, c('mu', 'nu', 'sigmaPop'))
@@ -96,7 +96,7 @@ dt_ls = function(x, df, mu, a) 1/a * dt((x - mu)/a, df)
 rt_ls <- function(n, df, mu, a) rt(n,df)*a + mu
 
 ## use point-wise predictive approach to sample a new value from this data
-ivResp = dfData$Median.internalization.score
+ivResp = dfData$Rd.score
 mDraws = matrix(NA, nrow = length(ivResp), ncol=2000)
 
 # rppd = function(index){
@@ -177,19 +177,18 @@ mChecks
 
 ################ end model checks
 
-## get the coefficient of interest - Modules in our case from the random coefficients section
-mModules = extract(fit.stan)$rGroupsJitter1
+## get the coefficient of interest - slopes for the modules from group 1
+mModules = extract(fit.stan)$rGroupsSlope1
 dim(mModules)
-## get the intercept at population level
-iIntercept = extract(fit.stan)$betas[,1]
+## get the slope at population level
+iIntercept = extract(fit.stan)$slope
 ## add the intercept to each random effect variable, to get the full coefficient
 mModules = sweep(mModules, 1, iIntercept, '+')
 
 ## function to calculate statistics for differences between coefficients
-getDifference = function(ivData, ivBaseline){
-  stopifnot(length(ivData) == length(ivBaseline))
+getDifference = function(ivData){
   # get the difference vector
-  d = ivData - ivBaseline
+  d = ivData
   # get the z value
   z = mean(d)/sd(d)
   # get 2 sided p-value
@@ -197,108 +196,46 @@ getDifference = function(ivData, ivBaseline){
   return(list(z=z, p=p))
 }
 
-## split the data into the comparisons required
-d = data.frame(cols=1:ncol(mModules), mods=levels(dfData$Coef), rawAverage=tapply(dfData$Median.internalization.score, dfData$Coef, FUN = mean))
+## split the data into the coefficients/slopes
+d = data.frame(cols=1:ncol(mModules), mods=levels(dfData$fBlock))
 ## split this factor into sub factors
 f = strsplit(as.character(d$mods), ':')
 d = cbind(d, do.call(rbind, f))
-colnames(d) = c(colnames(d)[1:3], c('cells', 'transcription.fac', 'time'))
-## create the comparisons/contrasts required
-d$split = factor(d$cells:d$transcription.fac)
+colnames(d) = c(colnames(d)[1:2], c('cells', 'stimulation', 'time'))
 head(d)
 
-########## repeat for various contrasts of interest
-### week 1 vs baseline
-d1 = d[d$time %in% c('Baseline', 'Week 1'),]
-d1 = droplevels.data.frame(d1)
-## this data frame is a mapper for each required comparison
-ldfMap = split(d1, f = d1$split)
-
-## get a p-value for each comparison
-l = lapply(ldfMap, function(x) {
-  c = x$cols
-  d = getDifference(ivData = mModules[,c[2]], ivBaseline = mModules[,c[1]])
-  r = data.frame(module= as.character(x$split[1]), coef.baseline=mean(mModules[,c[1]]), 
-        coef.week1=mean(mModules[,c[2]]), zscore=d$z, pvalue=d$p, rawAverage.baseline=x$rawAverage[1],
-        rawAverage.week1=x$rawAverage[2])
+########## get p-values for slopes
+l = lapply(1:nrow(d), function(x) {
+  c = d[x,'cols']
+  dif = getDifference(ivData = mModules[,c])
+  r = data.frame(block= as.character(d[x,'mods']), slope=mean(mModules[,c]), 
+        zscore=dif$z, pvalue=dif$p)
   return(format(r, digi=3))
 })
 
 dfResults = do.call(rbind, l)
 dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
-write.csv(dfResults, file='Results/longitudinalDataResults_MIS_week1VSbaseline_Ustekinumab.csv', row.names = F)
+write.csv(dfResults, file='Results/correlationAdalimumab.csv', row.names = F)
 
-### week 4 vs baseline
-d1 = d[d$time %in% c('Baseline', 'Week 4'),]
-d1 = droplevels.data.frame(d1)
-head(d1)
-## this data frame is a mapper for each required comparison
-ldfMap = split(d1, f = d1$split)
-ldfMap[1:2]
-## get a p-value for each comparison
-l = lapply(ldfMap, function(x) {
-  c = x$cols
-  d = getDifference(ivData = mModules[,c[2]], ivBaseline = mModules[,c[1]])
-  r = data.frame(module= as.character(x$split[1]), coef.baseline=mean(mModules[,c[1]]), 
-                 coef.week4=mean(mModules[,c[2]]), zscore=d$z, pvalue=d$p, rawAverage.baseline=x$rawAverage[1],
-                 rawAverage.week4=x$rawAverage[2])
-  return(format(r, digi=3))
-})
-
-dfResults = do.call(rbind, l)
-dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
-write.csv(dfResults, file='Results/longitudinalDataResults_MIS_week4VSbaseline_Ustekinumab.csv', row.names = F)
-
-### week 12 vs baseline
-d1 = d[d$time %in% c('Baseline', 'Week 12'),]
-d1 = droplevels.data.frame(d1)
-head(d1)
-## this data frame is a mapper for each required comparison
-ldfMap = split(d1, f = d1$split)
-ldfMap[1:2]
-## get a p-value for each comparison
-l = lapply(ldfMap, function(x) {
-  c = x$cols
-  d = getDifference(ivData = mModules[,c[2]], ivBaseline = mModules[,c[1]])
-  r = data.frame(module= as.character(x$split[1]), coef.baseline=mean(mModules[,c[1]]), 
-                 coef.week12=mean(mModules[,c[2]]), zscore=d$z, pvalue=d$p, rawAverage.baseline=x$rawAverage[1],
-                 rawAverage.week12=x$rawAverage[2])
-  return(format(r, digi=3))
-})
-
-dfResults = do.call(rbind, l)
-dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
-write.csv(dfResults, file='Results/longitudinalDataResults_MIS_week12VSbaseline_Ustekinumab.csv', row.names = F)
-
-## make the plots for the raw data and fitted data
-## format data for plotting
-d2 = dfData[,c('Median.internalization.score', 'Coef')]
-#f = strsplit(as.character(d2$Modules), ':')
-f = strsplit(as.character(d2$Coef), ':')
-d2 = cbind(d2, do.call(rbind, f))
-colnames(d2) = c(colnames(d2)[1:2], c('cells', 'transcription.fac', 'time'))
-head(d2)
-levels(d2$time)
-d2$time = factor(d2$time, levels=c('Baseline', 'Week 1', 'Week 4', 'Week 12'))
-nlevels(factor(d2$cells:d2$transcription.fac))
-nlevels(d2$Coef)
-
-dotplot(time ~ Median.internalization.score | cells:transcription.fac, data=d2, panel=function(x, y, ...) panel.bwplot(x, y, pch='|', ...),
-        par.strip.text=list(cex=0.7), main='Unstimulated MIS data 120 Groups by time in 30 Modules', xlab='MIS')
+## make the plots for the raw data and coef
+xyplot(Rd.score ~ relativePASI | Cell.type:Stimulation, data=dfData, type=c('g', 'p', 'r'),
+       ##index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2),
+       par.strip.text=list(cex=0.5), scales = list(x=list(rot=45, cex=0.5)), pch=20, groups=Visit..Week.,
+       auto.key=list(columns=4))
 
 ## format data for plotting
 m = colMeans(mModules)
 s = apply(mModules, 2, sd)*1.96
 d = data.frame(m, s, s1=m+s, s2=m-s)
-d$mods = levels(dfData$Coef)
+d$mods = levels(dfData$fBlock)
 ## split this factor into sub factors
 f = strsplit(d$mods, ':')
 d = cbind(d, do.call(rbind, f))
-colnames(d) = c(colnames(d)[1:5], c('cells', 'transcription.fac', 'time'))
+colnames(d) = c(colnames(d)[1:5], c('cells', 'stimulation', 'time'))
 d$time = factor(d$time, levels=c('Baseline', 'Week 1', 'Week 4', 'Week 12'))
 
-dotplot(time ~ m+s1+s2 | cells:transcription.fac, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
-        par.strip.text=list(cex=0.7), main='Unstimulated MIS 120 Regression Coeff in 30 Modules', xlab='Model estimated Coefficients')
+dotplot(time ~ m+s1+s2 | cells:stimulation, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
+        par.strip.text=list(cex=0.5), main='317 Slopes for Rd.Score ~ relativePASI', xlab='Slope')
 
 
 ## example of xyplot with confidence interval bars
