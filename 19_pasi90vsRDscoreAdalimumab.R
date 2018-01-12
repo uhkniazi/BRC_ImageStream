@@ -67,7 +67,7 @@ lStanData = list(Ntotal=nrow(dfData), Nclusters1=nlevels(dfData$Coef), Nclusters
                  Ncol=1, 
                  y=dfData$Rd.score, gammaShape=l$shape, gammaRate=l$rate)
 
-fit.stan = sampling(stanDso, data=lStanData, iter=1000, chains=2, pars=c('betas', 'sigmaRan1', 'sigmaRan2', 'nu',
+fit.stan = sampling(stanDso, data=lStanData, iter=10000, chains=2, pars=c('betas', 'sigmaRan1', 'sigmaRan2', 'nu',
                                                                           'sigmaPop','mu', 'rGroupsJitter1', 'rGroupsJitter2'),
                     cores=2)#, control=list(adapt_delta=0.99, max_treedepth = 15))
 print(fit.stan, c('betas', 'sigmaRan1', 'sigmaRan2', 'sigmaPop', 'nu'), digits=3)
@@ -99,7 +99,7 @@ abline(0, 1, col='red')
 
 ### plot the posterior predictive values
 m = extract(fit.stan, c('mu', 'nu', 'sigmaPop'))
-i = sample(1:10000, 5000)
+i = sample(1:10000, 2000)
 muSample = m$mu[i,]
 nuSample = m$nu[i]
 sigSample = m$sigmaPop[i]
@@ -189,19 +189,19 @@ mChecks['Mean', 1] = getPValue(t1, t2)
 mChecks
 
 ################ end model checks
-
-## get the coefficient of interest - slopes for the modules from group 1
-mModules = extract(fit.stan)$rGroupsSlope1
+## get the coefficient of interest - block:pasi90 in our case from the random coefficients section
+mModules = extract(fit.stan)$rGroupsJitter1
 dim(mModules)
-## get the slope at population level
-iIntercept = extract(fit.stan)$slope
+## get the intercept at population level
+iIntercept = extract(fit.stan)$betas[,1]
 ## add the intercept to each random effect variable, to get the full coefficient
 mModules = sweep(mModules, 1, iIntercept, '+')
 
 ## function to calculate statistics for differences between coefficients
-getDifference = function(ivData){
+getDifference = function(ivData, ivBaseline){
+  stopifnot(length(ivData) == length(ivBaseline))
   # get the difference vector
-  d = ivData
+  d = ivData - ivBaseline
   # get the z value
   z = mean(d)/sd(d)
   # get 2 sided p-value
@@ -209,27 +209,36 @@ getDifference = function(ivData){
   return(list(z=z, p=p))
 }
 
-## split the data into the coefficients/slopes
-d = data.frame(cols=1:ncol(mModules), mods=levels(dfData$fBlock))
+## split the data into the comparisons required
+d = data.frame(cols=1:ncol(mModules), mods=levels(dfData$Coef), rawAverage=tapply(dfData$Rd.score, dfData$Coef, FUN = mean))
 ## split this factor into sub factors
 f = strsplit(as.character(d$mods), ':')
 d = cbind(d, do.call(rbind, f))
-colnames(d) = c(colnames(d)[1:2], c('cells', 'stimulation', 'time'))
+colnames(d) = c(colnames(d)[1:3], c('cells', 'stimulation', 'time', 'PASI90'))
+## create the comparisons/contrasts required
+d$split = factor(d$cells:d$stimulation:d$time)
 head(d)
 
-########## get p-values for slopes
-l = lapply(1:nrow(d), function(x) {
-  c = d[x,'cols']
-  dif = getDifference(ivData = mModules[,c])
-  r = data.frame(block= as.character(d[x,'mods']), slope=mean(mModules[,c]), 
-        zscore=dif$z, pvalue=dif$p)
+########## contrast of interest
+### contrasts within each block
+## this data frame is a mapper for each required comparison
+ldfMap = split(d, f = d$split)
+
+## get a p-value for each comparison
+l = lapply(ldfMap, function(x) {
+  c = x$cols
+  d = getDifference(ivData = mModules[,c[2]], ivBaseline = mModules[,c[1]])
+  r = data.frame(block= as.character(x$split[1]), coef.PASI90.FALSE=mean(mModules[,c[1]]), 
+                 coef.PASI90.TRUE=mean(mModules[,c[2]]), zscore=d$z, pvalue=d$p, rawAverage.PASI90.FALSE=x$rawAverage[1],
+                 rawAverage.PASI90.TRUE=x$rawAverage[2])
   return(format(r, digi=3))
 })
 
 dfResults = do.call(rbind, l)
 dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
-write.csv(dfResults, file='Results/correlationAdalimumab.csv', row.names = F)
+write.csv(dfResults, file='results/pasi90vsRdScoreAdalimumab.csv', row.names = F)
 
+########################## continue from here to make plots of coefficients
 ## make the plots for the raw data and coef
 xyplot(Rd.score ~ relativePASI | Cell.type:Stimulation, data=dfData, type=c('g', 'p', 'r'),
        ##index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2),
