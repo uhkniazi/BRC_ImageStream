@@ -1,7 +1,108 @@
 # Name: 19_pasi90vsRDscoreAdalimumab.R
 # Auth: umar.niazi@kcl.ac.uk
 # Date: 12/01/2018
-# Desc: modelling for the differences in rd.score for pasi90 trus/false groups
+# Desc: import clean and model for the differences in rd.score for pasi90 trus/false groups
+
+############################## data import and cleaning steps
+
+dfPatient = read.csv('dataExternal/healthyData/merged.files_and_annotations.csv',
+                     header=T, sep='\t', na.strings = c('na', 'NA'))
+
+dim(dfPatient)
+colnames(dfPatient)
+cn = c("Patient.ID", "Treatment", "Visit..Week.", "Transcription.factor", "Median.internalization.score",
+       "Stimulation", "Cell.type" , "Rd.score", "Cell.count", "Baseline.PASI", "Week.1.PASI", "Week.4.PASI", "Week.12.PASI",  "Gender", "Age", "Ethnicity", "PsA", "Weight.baseline..Kg.", "ADL.conc", "USK.conc", "relativePASI", "PASI90", "PASI75", "PASI50")
+length(cn)
+dfData = dfPatient[,cn]
+
+## check structure of data
+str(dfData)
+dfData = dfData[dfData$Treatment == 'Adalimumab',]
+dfData = droplevels.data.frame(dfData)
+## check stimulation factor
+levels(dfData$Stimulation)
+# check the data for na values
+dim(dfData)
+f = is.na(dfData$Rd.score)
+table(f)
+dfData = dfData[!f,]
+
+dim(dfData)
+
+## this should clear any empty factor levels
+dfData = droplevels.data.frame(dfData)
+
+## make a new time variable
+levels(dfData$Visit..Week.)
+dfData$Visit..Week. = factor(dfData$Visit..Week., levels=c('Baseline', 
+                                                           'Week 1', 'Week 4',
+                                                           'Week 12'))
+i = rep(NA, length=length(dfData$Visit..Week.))
+i[dfData$Visit..Week. == 'Baseline'] = 0;
+i[dfData$Visit..Week. == 'Week 1'] = 1;
+i[dfData$Visit..Week. == 'Week 4'] = 4;
+i[dfData$Visit..Week. == 'Week 12'] = 12;
+dfData$time = i
+
+####### apply the cutoffs
+## cell count variable check this 
+dim(dfData)
+dfData = dfData[dfData$Cell.count >= 10,]
+dim(dfData)
+
+# define the blocks as used by previous analyst
+# in each cell type, the stimulation and transcription factors are nested 
+# apart from where Stimulation = Unstimulated
+nlevels(factor(dfData$Stimulation:dfData$Transcription.factor:dfData$Cell.type))
+nlevels(factor(dfData$Stimulation:dfData$Cell.type))
+nlevels(factor(dfData$Stimulation:dfData$Transcription.factor))
+nlevels(dfData$Stimulation)
+xtabs(~ dfData$Transcription.factor+dfData$Cell.type)
+xtabs(~ dfData$Transcription.factor+dfData$Stimulation)
+# module is cell type  + stimulation
+fModule = factor(dfData$Cell.type:dfData$Stimulation)
+nlevels(fModule)
+# block is a combination of modules and time
+fBlock = factor(fModule:dfData$Visit..Week.)
+nlevels(fBlock)
+fPASI90 = factor(dfData$PASI90)
+## 360 blocks
+## drop blocks where difference between median rd scores for the two groups is not greater than 0.3
+i = tapply(dfData$Rd.score, factor(fBlock:fPASI90), median)
+s = cbind(i, data.frame(do.call(rbind, strsplit(names(i), ':'))))
+s$X3 = factor(s$X3, levels=c('Baseline', 
+                             'Week 1', 'Week 4',
+                             'Week 12'))
+i = tapply(s$i, factor(s$X1:s$X2:s$X3), function(x) diff(sort(x, decreasing = F)))
+head(i)
+summary(i)
+i = which(i < 0.3)
+i = levels(fBlock)[i]
+# drop these blocks from the dataset
+f = which(fBlock %in% i)
+dim(dfData)
+dfData = dfData[-f,]
+dim(dfData)
+dfData = droplevels.data.frame(dfData)
+
+# make modules and blocks again
+fModule = factor(dfData$Cell.type:dfData$Stimulation)
+nlevels(fModule)
+# block is a combination of modules and time
+fBlock = factor(fModule:dfData$Visit..Week.)
+nlevels(fBlock)
+
+dfData$fModule = fModule
+dfData$fBlock = fBlock
+
+xtabs(~ dfData$fModule  + dfData$Transcription.factor)
+xtabs(~ dfData$fBlock + dfData$Transcription.factor)
+rm(fModule)
+rm(fBlock)
+
+write.csv(dfData, file='dataExternal/healthyData/pasi90VsRdScoreAdalimumab.csv', row.names = F)
+
+########################### data modelling steps
 
 library(lattice)
 
@@ -13,7 +114,7 @@ gammaShRaFromModeSD = function( mode , sd ) {
   return( list( shape=shape , rate=rate ) )
 }
 
-dfData = read.csv('dataExternal/healthyData/correlationDataAdalimumab.csv', header=T)
+dfData = read.csv('dataExternal/healthyData/pasi90VsRdScoreAdalimumab.csv', header=T)
 
 dfData$Visit..Week. = factor(dfData$Visit..Week., levels=c('Baseline', 
                                                            'Week 1', 'Week 4',
@@ -25,7 +126,7 @@ xyplot(Rd.score ~ PASI90 | fModule, data=dfData, type=c('g', 'p', 'r'),
        auto.key=list(columns=4))
 
 dotplot(PASI90 ~ Rd.score | fBlock, data=dfData, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
-        par.strip.text=list(cex=0.5), xlim=c(-0.6, 1))
+        par.strip.text=list(cex=0.7))
 
 
 ## use data on original scale
@@ -236,7 +337,7 @@ l = lapply(ldfMap, function(x) {
 
 dfResults = do.call(rbind, l)
 dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
-write.csv(dfResults, file='results/pasi90vsRdScoreAdalimumab.csv', row.names = F)
+write.csv(dfResults, file='Results/pasi90vsRdScoreAdalimumab.csv', row.names = F)
 
 ########################## continue from here to make plots of coefficients
 ## make the plots for the raw data and coef
