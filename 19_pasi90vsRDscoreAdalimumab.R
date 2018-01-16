@@ -114,20 +114,24 @@ gammaShRaFromModeSD = function( mode , sd ) {
   return( list( shape=shape , rate=rate ) )
 }
 
-dfData = read.csv('dataExternal/healthyData/pasi90VsRdScoreAdalimumab.csv', header=T)
+#dfData = read.csv('dataExternal/healthyData/pasi90VsRdScoreAdalimumab.csv', header=T)
 
-dfData$Visit..Week. = factor(dfData$Visit..Week., levels=c('Baseline', 
-                                                           'Week 1', 'Week 4',
-                                                           'Week 12'))
+# dfData$Visit..Week. = factor(dfData$Visit..Week., levels=c('Baseline', 
+#                                                            'Week 1', 'Week 4',
+#                                                            'Week 12'))
 
-xyplot(Rd.score ~ PASI90 | fModule, data=dfData, type=c('g', 'p', 'r'),
+dotplot(PASI90 ~ Rd.score | fBlock, data=dfData, type=c('p'),
        ##index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2),
-       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), pch=20, groups=Visit..Week.,
-       auto.key=list(columns=4))
+       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), pch=20)
 
 dotplot(PASI90 ~ Rd.score | fBlock, data=dfData, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
         par.strip.text=list(cex=0.7))
 
+bwplot(PASI90 ~ Rd.score | fBlock, data=dfData, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...), type='b',
+        par.strip.text=list(cex=0.7), varwidth=T)
+
+bwplot(PASI90 ~ Rd.score | fBlock, data=dfData, panel=panel.violin, type='b',
+       par.strip.text=list(cex=0.7), varwidth=F)
 
 ## use data on original scale
 densityplot(dfData$Rd.score, groups=dfData$fBlock)
@@ -341,24 +345,22 @@ write.csv(dfResults, file='Results/pasi90vsRdScoreAdalimumab.csv', row.names = F
 
 ########################## continue from here to make plots of coefficients
 ## make the plots for the raw data and coef
-xyplot(Rd.score ~ relativePASI | Cell.type:Stimulation, data=dfData, type=c('g', 'p', 'r'),
-       ##index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2),
-       par.strip.text=list(cex=0.5), scales = list(x=list(rot=45, cex=0.5)), pch=20, groups=Visit..Week.,
-       auto.key=list(columns=4))
+bwplot(PASI90 ~ Rd.score | fBlock, data=dfData, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...),
+        par.strip.text=list(cex=0.5), varwidth=T)
 
 ## format data for plotting
 m = colMeans(mModules)
 s = apply(mModules, 2, sd)*1.96
 d = data.frame(m, s, s1=m+s, s2=m-s)
-d$mods = levels(dfData$fBlock)
+d$mods = levels(dfData$Coef  )
 ## split this factor into sub factors
 f = strsplit(d$mods, ':')
 d = cbind(d, do.call(rbind, f))
-colnames(d) = c(colnames(d)[1:5], c('cells', 'stimulation', 'time'))
+colnames(d) = c(colnames(d)[1:5], c('cells', 'stimulation', 'time', 'PASI90'))
 d$time = factor(d$time, levels=c('Baseline', 'Week 1', 'Week 4', 'Week 12'))
 
-dotplot(time ~ m+s1+s2 | cells:stimulation, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
-        par.strip.text=list(cex=0.5), main='317 Slopes for Rd.Score ~ relativePASI', xlab='Slope')
+dotplot(PASI90 ~ m+s1+s2 | cells:stimulation:time, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
+        par.strip.text=list(cex=0.5), main='90 Fitted Coefficients for Rd.score ~ PASI90', xlab='')
 
 
 ## example of xyplot with confidence interval bars
