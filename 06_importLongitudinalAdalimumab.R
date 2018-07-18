@@ -1,6 +1,6 @@
 # Name: 06_importLongitudinalAdalimumab.R
 # Auth: umar.niazi@kcl.ac.uk
-# Date: 17/11/2017
+# Date: 18/07/2018
 # Desc: imports the longitudinal data for treatment 1
 
 
@@ -39,6 +39,11 @@ i[dfData$Visit..Week. == 'Week 4'] = 4;
 i[dfData$Visit..Week. == 'Week 12'] = 12;
 dfData$time = i
 
+## choose only the transcription factor nfkb
+levels(dfData$Transcription.factor)
+dfData = dfData[dfData$Transcription.factor == 'NF-kB', ]
+dfData = droplevels.data.frame(dfData)
+dim(dfData)
 ####### data distribution
 library(lattice)
 library(MASS)
@@ -102,7 +107,7 @@ dfData$fModule = fModule
 
 xtabs(~ dfData$fModule  + dfData$Transcription.factor)
 rm(fModule)
-## each module has only one transcription factor
+## each module has only one transcription factor, and we are only looking at nfkb this time
 xyplot(Rd.score ~ time | fModule, data=dfData, type=c('g', 'p', 'r'), pch=19, cex=0.6,
        ##index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2),
        par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)))
@@ -542,5 +547,5 @@ lines(x, col='green', lwd=0.6)
 lines(density(ivResp))
 
 ### save the data for use
-write.csv(dfData, file='dataExternal/healthyData/diseasedDataAdalimumab.csv', row.names = F)
+write.csv(dfData, file='dataExternal/healthyData/diseasedDataAdalimumab_onlyNFKB.csv', row.names = F)
 
