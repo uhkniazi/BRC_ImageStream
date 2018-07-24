@@ -13,7 +13,7 @@ gammaShRaFromModeSD = function( mode , sd ) {
   return( list( shape=shape , rate=rate ) )
 }
 
-dfData = read.csv('dataExternal/healthyData/diseasedDataMISAdalimumab.csv', header=T)
+dfData = read.csv('dataExternal/healthyData/diseasedDataMISAdalimumab_onlyNFKB.csv', header=T)
 
 dfData$Visit..Week. = factor(dfData$Visit..Week., levels=c('Baseline', 
                                                            'Week 1', 'Week 4',
@@ -96,7 +96,7 @@ lines(lowess(predict(fit.lme1), resid(fit.lme1)), col=2, lwd=2)
 
 plot(fitted, predict(fit.lme1), pch=20, cex=0.5)
 abline(0, 1, col='red')
-## the normal model residuals have a stronger curvature and t model has a no curvature
+## the  and t models are similar
 
 ### plot the posterior predictive values
 m = extract(fit.stan, c('mu', 'nu', 'sigmaPop'))
@@ -221,6 +221,7 @@ colnames(d) = c(colnames(d)[1:3], c('cells', 'transcription.fac', 'time'))
 d$split = factor(d$cells:d$transcription.fac)
 head(d)
 
+levels(d$time)
 ########## repeat for various contrasts of interest
 ### week 1 vs baseline
 d1 = d[d$time %in% c('Baseline', 'Week 1'),]
@@ -240,7 +241,7 @@ l = lapply(ldfMap, function(x) {
 
 dfResults = do.call(rbind, l)
 dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
-write.csv(dfResults, file='Results/longitudinalDataResults_MIS_week1VSbaseline_Adalimumab.csv', row.names = F)
+write.csv(dfResults, file='Results/longitudinalDataResults_MIS_week1VSbaseline_Adalimumab_onlyNFKB.csv', row.names = F)
 
 ### week 4 vs baseline
 d1 = d[d$time %in% c('Baseline', 'Week 4'),]
@@ -261,7 +262,7 @@ l = lapply(ldfMap, function(x) {
 
 dfResults = do.call(rbind, l)
 dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
-write.csv(dfResults, file='Results/longitudinalDataResults_MIS_week4VSbaseline_Adalimumab.csv', row.names = F)
+write.csv(dfResults, file='Results/longitudinalDataResults_MIS_week4VSbaseline_Adalimumab_onlyNFKB.csv', row.names = F)
 
 ### week 12 vs baseline
 d1 = d[d$time %in% c('Baseline', 'Week 12'),]
@@ -282,7 +283,7 @@ l = lapply(ldfMap, function(x) {
 
 dfResults = do.call(rbind, l)
 dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
-write.csv(dfResults, file='Results/longitudinalDataResults_MIS_week12VSbaseline_Adalimumab.csv', row.names = F)
+write.csv(dfResults, file='Results/longitudinalDataResults_MIS_week12VSbaseline_Adalimumab_onlyNFKB.csv', row.names = F)
 
 ## make the plots for the raw data and fitted data
 ## format data for plotting
@@ -298,7 +299,11 @@ nlevels(factor(d2$cells:d2$transcription.fac))
 nlevels(d2$Coef)
 
 dotplot(time ~ Median.internalization.score | cells:transcription.fac, data=d2, panel=function(x, y, ...) panel.bwplot(x, y, pch='|', ...),
-        par.strip.text=list(cex=0.7), main='Unstimulated MIS data 120 Groups by time in 30 Modules', xlab='MIS')
+        par.strip.text=list(cex=0.7), main='Unstimulated MIS data 40 Groups by time in 10 Modules', xlab='MIS')
+
+bwplot(time ~ Median.internalization.score | cells:transcription.fac, data=d2, panel=panel.violin,
+        par.strip.text=list(cex=0.7), varwidth=F, main='Unstimulated MIS data 40 Groups by time in 10 Modules', xlab='MIS')
+
 
 ## format data for plotting
 m = colMeans(mModules)
@@ -312,7 +317,7 @@ colnames(d) = c(colnames(d)[1:5], c('cells', 'transcription.fac', 'time'))
 d$time = factor(d$time, levels=c('Baseline', 'Week 1', 'Week 4', 'Week 12'))
 
 dotplot(time ~ m+s1+s2 | cells:transcription.fac, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
-        par.strip.text=list(cex=0.7), main='Unstimulated MIS 120 Regression Coeff in 30 Modules', xlab='Model estimated Coefficients')
+        par.strip.text=list(cex=0.7), main='Unstimulated MIS 40 Regression Coeff in 10 Modules', xlab='Model estimated Coefficients')
 
 
 ## example of xyplot with confidence interval bars

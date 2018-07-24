@@ -42,6 +42,12 @@ i[dfData$Visit..Week. == 'Week 4'] = 4;
 i[dfData$Visit..Week. == 'Week 12'] = 12;
 dfData$time = i
 
+## choose only the transcription factor nfkb
+levels(dfData$Transcription.factor)
+dfData = dfData[dfData$Transcription.factor == 'NF-kB', ]
+dfData = droplevels.data.frame(dfData)
+dim(dfData)
+
 ####### data distribution
 library(lattice)
 library(MASS)
@@ -549,5 +555,5 @@ lines(x, col='green', lwd=0.6)
 lines(density(ivResp))
 
 ### save the data for use
-write.csv(dfData, file='dataExternal/healthyData/diseasedDataMISAdalimumab.csv', row.names = F)
+write.csv(dfData, file='dataExternal/healthyData/diseasedDataMISAdalimumab_onlyNFKB.csv', row.names = F)
 
