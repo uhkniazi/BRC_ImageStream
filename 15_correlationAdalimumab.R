@@ -13,7 +13,7 @@ gammaShRaFromModeSD = function( mode , sd ) {
   return( list( shape=shape , rate=rate ) )
 }
 
-dfData = read.csv('dataExternal/healthyData/correlationDataAdalimumab.csv', header=T)
+dfData = read.csv('dataExternal/healthyData/correlationDataAdalimumab_onlyNFKB.csv', header=T)
 
 dfData$Visit..Week. = factor(dfData$Visit..Week., levels=c('Baseline', 
                                                            'Week 1', 'Week 4',
@@ -24,6 +24,12 @@ xyplot(Rd.score ~ relativePASI | fModule, data=dfData, type=c('g', 'p', 'r'),
        par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), pch=20, groups=Visit..Week.,
        auto.key=list(columns=4))
 
+xyplot(Rd.score ~ relativePASI | fBlock, data=dfData[dfData$Visit..Week. == 'Week 12',], type=c('g', 'p', 'r'),
+       ##index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2),
+       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), pch=20, groups=Visit..Week.,
+       auto.key=list(columns=4))
+
+
 ## use data on original scale
 densityplot(dfData$Rd.score, groups=dfData$fBlock)
 densityplot(dfData$Rd.score)
@@ -31,6 +37,11 @@ densityplot(dfData$Rd.score)
 dfData = dfData[order(dfData$Patient.ID, dfData$fBlock),]
 dfData = droplevels.data.frame(dfData)
 str(dfData)
+
+dfData.bk = dfData
+dfData = dfData[dfData$Visit..Week. == 'Week 12',]
+dfData = droplevels.data.frame(dfData)
+dim(dfData)
 
 #### fit mixed effect model
 library(lme4)
@@ -59,6 +70,8 @@ fit.stan = sampling(stanDso, data=lStanData, iter=10000, chains=2, pars=c('inter
                                                                          'mu', 'rGroupsJitter1', 'rGroupsJitter2', 'rGroupsSlope1'),
                     cores=2)#, control=list(adapt_delta=0.99, max_treedepth = 15))
 print(fit.stan, c('intercept', 'slope', 'sigmaRan1', 'sigmaRan2', 'sigmaRanSlope1', 'sigmaPop', 'nu'), digits=3)
+traceplot(fit.stan, c('intercept', 'slope', 'sigmaRan1', 'sigmaRan2', 'sigmaRanSlope1', 'sigmaPop', 'nu'), ncol=2)
+
 
 ##############################
 ########## model checks section
@@ -215,13 +228,12 @@ l = lapply(1:nrow(d), function(x) {
 
 dfResults = do.call(rbind, l)
 dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
-write.csv(dfResults, file='Results/correlationAdalimumab.csv', row.names = F)
+write.csv(dfResults, file='Results/correlationAdalimumab_onlyNFKB.csv', row.names = F)
 
 ## make the plots for the raw data and coef
 xyplot(Rd.score ~ relativePASI | Cell.type:Stimulation, data=dfData, type=c('g', 'p', 'r'),
        ##index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2),
-       par.strip.text=list(cex=0.5), scales = list(x=list(rot=45, cex=0.5)), pch=20, groups=Visit..Week.,
-       auto.key=list(columns=4))
+       par.strip.text=list(cex=0.6), scales = list(x=list(rot=45, cex=0.5)), pch=20)
 
 ## format data for plotting
 m = colMeans(mModules)
@@ -232,10 +244,16 @@ d$mods = levels(dfData$fBlock)
 f = strsplit(d$mods, ':')
 d = cbind(d, do.call(rbind, f))
 colnames(d) = c(colnames(d)[1:5], c('cells', 'stimulation', 'time'))
-d$time = factor(d$time, levels=c('Baseline', 'Week 1', 'Week 4', 'Week 12'))
+#d$time = factor(d$time, levels=c('Baseline', 'Week 1', 'Week 4', 'Week 12'))
 
 dotplot(time ~ m+s1+s2 | cells:stimulation, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
-        par.strip.text=list(cex=0.5), main='317 Slopes for Rd.Score ~ relativePASI', xlab='Slope')
+        par.strip.text=list(cex=0.6), main='21 Slopes for Rd.Score ~ relativePASI', xlab='Slope')
+
+m = data.frame(mModules)
+colnames(m) = levels(dfData$fBlock)
+s = stack(m)
+histogram(~ values | ind, data=s, par.strip.text=list(cex=0.6), main='21 Slopes for Rd.Score ~ relativePASI',
+          xlab='Slopes')
 
 
 ## example of xyplot with confidence interval bars

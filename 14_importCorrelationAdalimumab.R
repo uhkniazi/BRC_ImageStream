@@ -47,6 +47,13 @@ i[dfData$Visit..Week. == 'Week 4'] = 4;
 i[dfData$Visit..Week. == 'Week 12'] = 12;
 dfData$time = i
 
+## choose only the transcription factor nfkb
+levels(dfData$Transcription.factor)
+dfData = dfData[dfData$Transcription.factor == 'NF-kB', ]
+dfData = droplevels.data.frame(dfData)
+dim(dfData)
+
+
 ####### data distribution
 library(lattice)
 library(MASS)
@@ -105,14 +112,15 @@ nlevels(fModule)
 # block is a combination of modules and time
 fBlock = factor(fModule:dfData$Visit..Week.)
 nlevels(fBlock)
-## 360 blocks
-## drop blocks where difference between highest and lowest rd score is not greater than 0.3
-i = tapply(dfData$Rd.score, fBlock, function(x) max(x) - min(x))
+## 160 blocks
+## drop modules with average RD score < 0.3
+nlevels(fModule)
+i = tapply(dfData$Rd.score, fModule, mean)
 summary(i)
 i = which(i < 0.3)
-i = levels(fBlock)[i]
-# drop these blocks from the dataset
-f = which(fBlock %in% i)
+i = levels(fModule)[i]
+# drop these modules from the dataset
+f = which(fModule %in% i)
 dim(dfData)
 dfData = dfData[-f,]
 dim(dfData)
@@ -593,5 +601,5 @@ lines(x, col='green', lwd=0.6)
 lines(density(ivResp))
 
 ### save the data for use
-write.csv(dfData, file='dataExternal/healthyData/correlationDataAdalimumab.csv', row.names = F)
+write.csv(dfData, file='dataExternal/healthyData/correlationDataAdalimumab_onlyNFKB.csv', row.names = F)
 

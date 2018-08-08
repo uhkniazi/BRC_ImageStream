@@ -29,7 +29,7 @@ parameters {
 transformed parameters {
   vector[Ntotal] mu; // fitted values from linear predictor
   vector[Ntotal] newSlope; // set of slopes after adding random slope jitters
-  newSlope = slope + rGroupsSlope1[NgroupMap1];
+  newSlope = slope + rGroupsSlope1[NgroupMap1]*sigmaRanSlope1;
   // fitted value with slopes
   for (i in 1:Ntotal){
     mu[i] = X[i] * newSlope[i];
@@ -46,7 +46,7 @@ model {
   slope ~ cauchy(0, 2.5);
   // random effects sample
   rGroupsJitter1 ~ normal(0, sigmaRan1);
-  rGroupsSlope1 ~ normal(0, sigmaRanSlope1);
+  rGroupsSlope1 ~ normal(0, 1);
   rGroupsJitter2 ~ normal(0, sigmaRan2);
   // likelihood function
   y ~ student_t(nu, mu, sigmaPop);
