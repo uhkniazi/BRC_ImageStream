@@ -44,6 +44,13 @@ i[dfData$Visit..Week. == 'Week 4'] = 4;
 i[dfData$Visit..Week. == 'Week 12'] = 12;
 dfData$time = i
 
+## choose only the transcription factor nfkb
+levels(dfData$Transcription.factor)
+dfData = dfData[dfData$Transcription.factor == 'NF-kB', ]
+dfData = droplevels.data.frame(dfData)
+dim(dfData)
+
+
 ####### apply the cutoffs
 ## cell count variable check this 
 dim(dfData)
@@ -65,21 +72,15 @@ nlevels(fModule)
 # block is a combination of modules and time
 fBlock = factor(fModule:dfData$Visit..Week.)
 nlevels(fBlock)
-fPASI90 = factor(dfData$PASI90)
-## 360 blocks
-## drop blocks where difference between median rd scores for the two groups is not greater than 0.3
-i = tapply(dfData$Rd.score, factor(fBlock:fPASI90), median)
-s = cbind(i, data.frame(do.call(rbind, strsplit(names(i), ':'))))
-s$X3 = factor(s$X3, levels=c('Baseline', 
-                             'Week 1', 'Week 4',
-                             'Week 12'))
-i = tapply(s$i, factor(s$X1:s$X2:s$X3), function(x) diff(sort(x, decreasing = F)))
-head(i)
+## 160 blocks
+## drop modules with average RD score < 0.3
+nlevels(fModule)
+i = tapply(dfData$Rd.score, fModule, mean)
 summary(i)
 i = which(i < 0.3)
-i = levels(fBlock)[i]
-# drop these blocks from the dataset
-f = which(fBlock %in% i)
+i = levels(fModule)[i]
+# drop these modules from the dataset
+f = which(fModule %in% i)
 dim(dfData)
 dfData = dfData[-f,]
 dim(dfData)
@@ -100,7 +101,7 @@ xtabs(~ dfData$fBlock + dfData$Transcription.factor)
 rm(fModule)
 rm(fBlock)
 
-write.csv(dfData, file='dataExternal/healthyData/pasi90VsRdScoreAdalimumab.csv', row.names = F)
+write.csv(dfData, file='dataExternal/healthyData/pasi90VsRdScoreAdalimumab_onlyNFKB.csv', row.names = F)
 
 ########################### data modelling steps
 
