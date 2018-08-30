@@ -1,6 +1,6 @@
 # Name: 19_pasi90vsRDscoreAdalimumab.R
 # Auth: umar.niazi@kcl.ac.uk
-# Date: 12/01/2018
+# Date: 30/08/2018
 # Desc: import clean and model for the differences in rd.score for pasi90 trus/false groups
 
 ############################## data import and cleaning steps
@@ -230,7 +230,7 @@ for (i in 1:ncol(mDraws)){
 # 
 # temp = sapply(1:length(ivResp), function(x) rppd(x))
 # mDraws = t(temp)
-
+par(mfrow=c(1,1))
 yresp = density(ivResp)
 plot(yresp, xlab='', main='Fitted distribution', ylab='density', lwd=2)#, ylim=c(0, 1))
 temp = apply(mDraws, 2, function(x) {x = density(x)
@@ -342,7 +342,7 @@ l = lapply(ldfMap, function(x) {
 
 dfResults = do.call(rbind, l)
 dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
-write.csv(dfResults, file='Results/pasi90vsRdScoreAdalimumab.csv', row.names = F)
+write.csv(dfResults, file='Results/pasi90vsRdScoreAdalimumab_onlyNFKB.csv', row.names = F)
 
 ########################## continue from here to make plots of coefficients
 ## make the plots for the raw data and coef
@@ -361,7 +361,7 @@ colnames(d) = c(colnames(d)[1:5], c('cells', 'stimulation', 'time', 'PASI90'))
 d$time = factor(d$time, levels=c('Baseline', 'Week 1', 'Week 4', 'Week 12'))
 
 dotplot(PASI90 ~ m+s1+s2 | cells:stimulation:time, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
-        par.strip.text=list(cex=0.5), main='90 Fitted Coefficients for Rd.score ~ PASI90', xlab='')
+        par.strip.text=list(cex=0.5), main='168 Fitted Coefficients for Rd.score ~ PASI90', xlab='')
 
 
 ## example of xyplot with confidence interval bars
