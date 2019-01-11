@@ -1,7 +1,7 @@
 # Name: 07_longitudinalDataModelAdalimumab.R
 # Auth: umar.niazi@kcl.ac.uk
-# Date: 18/07/2018
-# Desc: imports the longitudinal data and fits a model for treatment 1 and nfkb only
+# Date: 11/01/2019
+# Desc: imports the longitudinal data and fits a model for treatment 1, il-17 and nfkb only
 
 library(lattice)
 
@@ -13,7 +13,7 @@ gammaShRaFromModeSD = function( mode , sd ) {
   return( list( shape=shape , rate=rate ) )
 }
 
-dfData = read.csv('dataExternal/healthyData/diseasedDataAdalimumab_onlyNFKB.csv', header=T)
+dfData = read.csv('dataExternal/healthyData/diseasedDataAdalimumab_onlyNFKB_noIL17.csv', header=T)
 
 dfData$Visit..Week. = factor(dfData$Visit..Week., levels=c('Baseline', 
                                                            'Week 1', 'Week 4',
@@ -240,7 +240,7 @@ l = lapply(ldfMap, function(x) {
 
 dfResults = do.call(rbind, l)
 dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
-write.csv(dfResults, file='Results/longitudinalDataResults_week1VSbaseline_Adalimumab_onlyNFKB.csv', row.names = F)
+write.csv(dfResults, file='Results/longitudinalDataResults_week1VSbaseline_Adalimumab_onlyNFKB_noIL17.csv', row.names = F)
 
 ### week 4 vs baseline
 d1 = d[d$time %in% c('Baseline', 'Week 4'),]
@@ -261,7 +261,7 @@ l = lapply(ldfMap, function(x) {
 
 dfResults = do.call(rbind, l)
 dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
-write.csv(dfResults, file='Results/longitudinalDataResults_week4VSbaseline_Adalimumab_onlyNFKB.csv', row.names = F)
+write.csv(dfResults, file='Results/longitudinalDataResults_week4VSbaseline_Adalimumab_onlyNFKB_noIL17.csv', row.names = F)
 
 ### week 12 vs baseline
 d1 = d[d$time %in% c('Baseline', 'Week 12'),]
@@ -282,7 +282,7 @@ l = lapply(ldfMap, function(x) {
 
 dfResults = do.call(rbind, l)
 dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
-write.csv(dfResults, file='Results/longitudinalDataResults_week12VSbaseline_Adalimumab_onlyNFKB.csv', row.names = F)
+write.csv(dfResults, file='Results/longitudinalDataResults_week12VSbaseline_Adalimumab_onlyNFKB_noIL17.csv', row.names = F)
 
 ## make the plots for the raw data and fitted data
 ## format data for plotting
@@ -298,10 +298,10 @@ nlevels(factor(d2$cells:d2$stimulation))
 nlevels(d2$Coef)
 
 dotplot(time ~ Rd.score | cells:stimulation, data=d2, panel=function(x, y, ...) panel.bwplot(x, y, pch='|', ...),
-        par.strip.text=list(cex=0.6), main='Raw data 84 Groups by time in 21 Modules', xlab='RD Score')
+        par.strip.text=list(cex=0.6), main='Raw data 48 Groups by time in 12 Modules', xlab='RD Score')
 
 bwplot(time ~ Rd.score | cells:stimulation, data=d2, panel=panel.violin, type='b', 
-        par.strip.text=list(cex=0.7), varwidth=F, main='Raw data 84 Groups by time in 21 Modules', xlab='RD Score')
+        par.strip.text=list(cex=0.7), varwidth=F, main='Raw data 48 Groups by time in 12 Modules', xlab='RD Score')
 
 ## format data for plotting
 m = colMeans(mModules)
@@ -315,7 +315,7 @@ colnames(d) = c(colnames(d)[1:5], c('cells', 'stimulation', 'time'))
 d$time = factor(d$time, levels=c('Baseline', 'Week 1', 'Week 4', 'Week 12'))
 
 dotplot(time ~ m+s1+s2 | cells:stimulation, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
-        par.strip.text=list(cex=0.6), main='84 Regression Coeff in 21 Modules', xlab='Model estimated Coefficients')
+        par.strip.text=list(cex=0.6), main='48 Regression Coeff in 12 Modules', xlab='Model estimated Coefficients')
 
 
 ## example of xyplot with confidence interval bars
