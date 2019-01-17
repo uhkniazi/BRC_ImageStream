@@ -1,6 +1,6 @@
 # Name: 15_correlationAdalimumab.R
 # Auth: umar.niazi@kcl.ac.uk
-# Date: 18/12/2017
+# Date: 17/01/2019
 # Desc: modelling for the correlation between rd.score and relative pasi
 
 library(lattice)
@@ -13,7 +13,7 @@ gammaShRaFromModeSD = function( mode , sd ) {
   return( list( shape=shape , rate=rate ) )
 }
 
-dfData = read.csv('dataExternal/healthyData/correlationDataAdalimumab_onlyNFKB.csv', header=T)
+dfData = read.csv('dataExternal/healthyData/correlationDataAdalimumab_onlyNFKB_noIL17.csv', header=T)
 
 dfData$Visit..Week. = factor(dfData$Visit..Week., levels=c('Baseline', 
                                                            'Week 1', 'Week 4',
@@ -24,7 +24,7 @@ xyplot(Rd.score ~ relativePASI | fModule, data=dfData, type=c('g', 'p', 'r'),
        par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), pch=20, groups=Visit..Week.,
        auto.key=list(columns=4))
 
-xyplot(Rd.score ~ relativePASI | fBlock, data=dfData[dfData$Visit..Week. == 'Week 4',], type=c('g', 'p', 'r'),
+xyplot(Rd.score ~ relativePASI | fBlock, data=dfData[dfData$Visit..Week. == 'Week 1',], type=c('g', 'p', 'r'),
        ##index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2),
        par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), pch=20, groups=Visit..Week.,
        auto.key=list(columns=4))
@@ -39,7 +39,7 @@ dfData = droplevels.data.frame(dfData)
 str(dfData)
 
 dfData.bk = dfData
-dfData = dfData[dfData$Visit..Week. == 'Week 4',]
+dfData = dfData[dfData$Visit..Week. == 'Baseline',]
 dfData = droplevels.data.frame(dfData)
 dim(dfData)
 
@@ -48,6 +48,10 @@ library(lme4)
 fit.lme1 = lmer(Rd.score ~ 1 + relativePASI + (1 | fBlock) + (0 + relativePASI | fBlock) + (1 | Patient.ID), data=dfData, REML=F)
 summary(fit.lme1)
 
+fit.lme2 = lmer(Rd.score ~ 1 + relativePASI + (1 + relativePASI | fBlock) + (1 | Patient.ID), data=dfData, REML=F)
+summary(fit.lme2)
+
+anova(fit.lme1, fit.lme2)
 
 library(rstan)
 rstan_options(auto_write = TRUE)
@@ -228,7 +232,7 @@ l = lapply(1:nrow(d), function(x) {
 
 dfResults = do.call(rbind, l)
 dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
-write.csv(dfResults, file='Results/correlationAdalimumab_onlyNFKB_Week4.csv', row.names = F)
+write.csv(dfResults, file='Results/correlationAdalimumab_onlyNFKB_Baseline_noIL17.csv', row.names = F)
 
 ## make the plots for the raw data and coef
 xyplot(Rd.score ~ relativePASI | Cell.type:Stimulation, data=dfData, type=c('g', 'p', 'r'),
@@ -248,15 +252,19 @@ colnames(d) = c(colnames(d)[1:5], c('cells', 'stimulation', 'time'))
 #d$time = factor(d$time, levels=c('Baseline', 'Week 1', 'Week 4', 'Week 12'))
 
 dotplot(time ~ m+s1+s2 | cells:stimulation, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
-        par.strip.text=list(cex=0.6), main='21 Slopes for Rd.Score ~ relativePASI', xlab='Slope')
+        par.strip.text=list(cex=0.6), main='Slopes for Rd.Score ~ relativePASI', xlab='Slope')
+
+dotplot(cells:stimulation ~ m+s1+s2 | time, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
+        par.strip.text=list(cex=0.6), main='Slopes for Rd.Score ~ relativePASI', xlab='Slope', layout=c(2,2))
 
 m = data.frame(mModules)
 colnames(m) = levels(dfData$fBlock)
 s = stack(m)
-histogram(~ values | ind, data=s, par.strip.text=list(cex=0.6), main='21 Slopes for Rd.Score ~ relativePASI',
+histogram(~ values | ind, data=s, par.strip.text=list(cex=0.6), main='12 Slopes for Rd.Score ~ relativePASI',
           xlab='Slopes')
 
-
+#d.full = d
+d.full = rbind(d.full, d)
 ## example of xyplot with confidence interval bars
 # xyplot(m ~ treatment | cells:stimulation, data=d, 
 #        panel=function(x,y,ulim,llim, ...) { 
@@ -267,7 +275,4 @@ histogram(~ values | ind, data=s, par.strip.text=list(cex=0.6), main='21 Slopes 
 #        #index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
 #        par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), main='41 Modules - baseline',
 #        auto.key = list(columns=3), ylim=c(min(d$s2), max(d$s1)))
-
-
-
 

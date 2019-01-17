@@ -1,6 +1,6 @@
 # Name: 14_importCorrelationAdalimumab.R
 # Auth: umar.niazi@kcl.ac.uk
-# Date: 18/12/2017
+# Date: 17/01/2019
 # Desc: imports the data and formats it for correlation analysis for treatment 1
 
 
@@ -53,6 +53,11 @@ dfData = dfData[dfData$Transcription.factor == 'NF-kB', ]
 dfData = droplevels.data.frame(dfData)
 dim(dfData)
 
+## drop some of the stimulations as decided 
+levels(dfData$Stimulation)
+dfData = dfData[!(dfData$Stimulation %in% c('IL-17', "TNF-alpha + IL-17")), ]
+dfData = droplevels.data.frame(dfData)
+dim(dfData)
 
 ####### data distribution
 library(lattice)
@@ -601,5 +606,5 @@ lines(x, col='green', lwd=0.6)
 lines(density(ivResp))
 
 ### save the data for use
-write.csv(dfData, file='dataExternal/healthyData/correlationDataAdalimumab_onlyNFKB.csv', row.names = F)
+write.csv(dfData, file='dataExternal/healthyData/correlationDataAdalimumab_onlyNFKB_noIL17.csv', row.names = F)
 
