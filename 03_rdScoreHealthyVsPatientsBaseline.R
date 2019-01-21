@@ -3,18 +3,10 @@
 # Date: 18/01/2019
 # Desc: Import and select Baseline data to compare healthy and patients
 
-dfData = read.csv('dataExternal/healthyData/merged.files_and_annotations.csv',
-                     header=T, sep='\t', na.strings = c('na', 'NA'))
+dfData = read.csv('dataExternal/healthyData/mergedHealthyPatientData.csv',
+                     header=T, na.strings = c('na', 'NA'))
 
-library(lattice)
-
-gammaShRaFromModeSD = function( mode , sd ) {
-  # function changed a little to return jeffery non-informative prior
-  if ( mode <=0 || sd <=0 ) return( list( shape=0.5 , rate=0.0001 ) ) 
-  rate = ( mode + sqrt( mode^2 + 4 * sd^2 ) ) / ( 2 * sd^2 )
-  shape = 1 + mode * rate
-  return( list( shape=shape , rate=rate ) )
-}
+dim(dfData)
 
 ## use only baseline samples and merge 2 types of treated into one group
 dfData = dfData[dfData$Visit..Week. == 'Baseline',]
@@ -23,6 +15,23 @@ t = as.character(dfData$Treatment)
 t[t != 'None'] = 'Patient'
 t[t == 'None'] = 'Healthy'
 dfData$Treatment = factor(t)
+
+## choose only the transcription factor nfkb
+levels(dfData$Transcription.factor)
+dfData = dfData[dfData$Transcription.factor == 'NF-κB', ]
+dfData = droplevels.data.frame(dfData)
+dim(dfData)
+
+## cell count variable check this 
+dim(dfData)
+dfData = dfData[dfData$Cell.count >= 10,]
+dim(dfData)
+dfData = droplevels.data.frame(dfData)
+str(dfData)
+
+## modules of average rd score of less than 0.3 have already been removed previously
+## as we are using the data version where this filter has already been applied.
+
 dfData$Modules = factor(dfData$fModule:dfData$Treatment)
 nlevels(dfData$Modules); table(dfData$Modules)
 dfData = dfData[order(dfData$Patient.ID, dfData$Modules),]
@@ -30,62 +39,29 @@ dfData = droplevels.data.frame(dfData)
 str(dfData)
 
 ## make a plot of the raw data
-## format before plotting
-d2 = dfData[,c('Rd.score', 'Modules', 'Age')]
-f = strsplit(as.character(d2$Modules), ':')
-d2 = cbind(d2, do.call(rbind, f))
-colnames(d2) = c(colnames(d2)[1:3], c('cells', 'stimulation', 'treatment'))
-
-dotplot(treatment ~ Rd.score | cells:stimulation, data=d2, groups=treatment, panel=function(x, y, ...) panel.bwplot(x, y, pch='|',...),
-        par.strip.text=list(cex=0.6), main='Raw data 41 Modules at baseline', xlab='Raw RD Score')
-
-xyplot(Rd.score ~ Age | cells:stimulation, data=d2, 
-       index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
-       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), groups=treatment, type=c('smooth'),
-       auto.key=list(columns=2), ylim=c(0, 2))
-
-xyplot(Rd.score ~ Age | cells:stimulation, data=d2, type=c('r', 'g'), pch=19, cex=0.6,
-       index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
-       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), groups=treatment, auto.key=list(columns=2),
-       ylim=c(0, 2))
-
-## population level effect of age
-xyplot(Rd.score ~ Age, data=d2, type=c('r', 'g', 'p'), pch=19, cex=0.6,
-       #index.cond = function(x,y) coef(lm(y ~ x))[1], #aspect='xy',# layout=c(8,2), 
-       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), groups=treatment, auto.key=list(columns=2),
-       ylim=c(0, 2))
-
-xyplot(Rd.score ~ Age, data=d2, type=c('smooth'), pch=19, cex=0.6,
-       #index.cond = function(x,y) coef(lm(y ~ x))[1], #aspect='xy',# layout=c(8,2), 
-       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), groups=treatment, auto.key=list(columns=2),
-       ylim=c(0, 2))
-
-
-## log the data before modelling
-dfData.original = dfData
-ivResp = dfData$Rd.score
-iShift = min(ivResp)+1
-ivResp = ivResp+abs(min(ivResp))+1
-ivResp = log(ivResp)
-dfData$Rd.score = ivResp
+library(lattice)
+## each module has only one transcription factor, and we are only looking at nfkb this time
+xyplot(Rd.score ~ Treatment | fModule, data=dfData, type=c('g', 'p'), pch=19, cex=0.6,
+       ##index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2),
+       par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)))
 
 
 library(lme4)
 fit.lme1 = lmer(Rd.score ~ 1 + (1 | Modules) + (1 | Patient.ID), data=dfData, REML=F)
 summary(fit.lme1)
 
-# fit.lme2 = lmer(Rd.score ~ 1 + Transcription.factor + (1 | Patient.ID) + (1 | Modules), data=dfData, REML=F)
-# summary(fit.lme2)
-# 
-# fit.lme3 = lmer(Rd.score ~ 1 + Transcription.factor + Treatment + (1 | Patient.ID) + (1 | Modules), data=dfData, REML=F)
-# summary(fit.lme3)
-# 
-# anova(fit.lme1, fit.lme2, fit.lme3)
-
 library(rstan)
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 stanDso = rstan::stan_model(file='tResponse2RandomEffectsNoFixed.stan')
+
+gammaShRaFromModeSD = function( mode , sd ) {
+  # function changed a little to return jeffery non-informative prior
+  if ( mode <=0 || sd <=0 ) return( list( shape=0.5 , rate=0.0001 ) ) 
+  rate = ( mode + sqrt( mode^2 + 4 * sd^2 ) ) / ( 2 * sd^2 )
+  shape = 1 + mode * rate
+  return( list( shape=shape , rate=rate ) )
+}
 
 l = gammaShRaFromModeSD(sd(dfData$Rd.score), 2*sd(dfData$Rd.score))
 # m = model.matrix(Rd.score ~ Transcription.factor, data=dfData)
@@ -125,15 +101,12 @@ dt_ls = function(x, df, mu, a) 1/a * dt((x - mu)/a, df)
 rt_ls <- function(n, df, mu, a) rt(n,df)*a + mu
 
 ## use point-wise predictive approach to sample a new value from this data
+ivResp = dfData$Rd.score
 mDraws = matrix(NA, nrow = length(ivResp), ncol=200)
 
-rppd = function(index){
-  f = muSample[,index]
-  return(rt_ls(length(f), nuSample, f, sigSample))
+for (i in 1:ncol(mDraws)){
+  mDraws[,i] = rt_ls(length(ivResp), nuSample[i], muSample[i,], sigSample[i])
 }
-
-temp = sapply(1:length(ivResp), function(x) rppd(x))
-mDraws = t(temp)
 
 yresp = density(ivResp)
 plot(yresp, xlab='', main='Fitted distribution', ylab='density', lwd=2)#, ylim=c(0, 1))
@@ -198,11 +171,6 @@ mChecks['Mean', 1] = getPValue(t1, t2)
 
 mChecks
 
-
-
-
-
-
 ## get the coefficient of interest - Modules in our case from the random coefficients section
 mModules = extract(fit.stan)$rGroupsJitter2
 dim(mModules)
@@ -224,8 +192,8 @@ getDifference = function(ivData, ivBaseline){
 }
 
 ## split the data into the comparisons required
-d = data.frame(cols=1:ncol(mModules), mods=levels(dfData$Modules), rawAverage=tapply(dfData.original$Rd.score, 
-                                                                                     dfData.original$Modules, FUN = mean))
+d = data.frame(cols=1:ncol(mModules), mods=levels(dfData$Modules), rawAverage=tapply(dfData$Rd.score, 
+                                                                                     dfData$Modules, FUN = mean))
 ## split this factor into sub factors
 f = strsplit(as.character(d$mods), ':')
 d = cbind(d, do.call(rbind, f))
@@ -247,7 +215,7 @@ l = lapply(ldfMap, function(x) {
 
 dfResults = do.call(rbind, l)
 dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
-write.csv(dfResults, file='Results/mergedDataResults.csv', row.names = F)
+write.csv(dfResults, file='Results/rdScoreHealthyVSPatientsBaseline.csv', row.names = F)
 
 ## make the plots for the raw data and fitted data
 ## format data for plotting
@@ -257,7 +225,7 @@ d2 = cbind(d2, do.call(rbind, f))
 colnames(d2) = c(colnames(d2)[1:2], c('cells', 'stimulation', 'treatment'))
 
 dotplot(treatment ~ Rd.score | cells:stimulation, data=d2, groups=treatment, panel=function(x, y, ...) panel.bwplot(x, y, pch='|', ...),
-        par.strip.text=list(cex=0.6), main='Raw data 41 Modules at baseline', xlab='Log RD Score')
+        par.strip.text=list(cex=0.6), main='Raw data 21 Modules at baseline', xlab='RD Score')
 
 ## format data for plotting
 m = colMeans(mModules)
@@ -270,42 +238,6 @@ d = cbind(d, do.call(rbind, f))
 colnames(d) = c(colnames(d)[1:5], c('cells', 'stimulation', 'treatment'))
 
 dotplot(treatment ~ m+s1+s2 | cells:stimulation, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
-        par.strip.text=list(cex=0.6), main='Regression Coeff 41 Modules at baseline', xlab='Model estimated Average Log RD Score')
-
-
-## convert coefficients to natural scale / i.e. exponent
-## format data for plotting
-m2 = exp(mModules)-iShift
-m = colMeans(m2)
-s = apply(m2, 2, sd)*1.96
-d = data.frame(m, s, s1=m+s, s2=m-s)
-d$mods = levels(dfData$Modules)
-## split this factor into sub factors
-f = strsplit(d$mods, ':')
-d = cbind(d, do.call(rbind, f))
-colnames(d) = c(colnames(d)[1:5], c('cells', 'stimulation', 'treatment'))
-
-dotplot(treatment ~ m+s1+s2 | cells:stimulation, data=d, panel=llines(d$s1, d$s2), cex=0.6,
-        par.strip.text=list(cex=0.7), main='Regression Coeff 41 Modules at baseline', xlab='Model estimated Average RD Score')
-
-
-### get p.values for contrasts of interest
-
-
-
-
-
-## example of xyplot with confidence interval bars
-# xyplot(m ~ treatment | cells:stimulation, data=d, 
-#        panel=function(x,y,ulim,llim, ...) { 
-#          lsegments(x, y-d$s, x, y+d$s, lwd=1)
-#          panel.xyplot(x,y, ...) 
-#        } 
-#        , type=c('p'), pch=19, groups=treatment, cex=0.5,
-#        #index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',# layout=c(8,2), 
-#        par.strip.text=list(cex=0.7), scales = list(x=list(rot=45, cex=0.5)), main='41 Modules - baseline',
-#        auto.key = list(columns=3), ylim=c(min(d$s2), max(d$s1)))
-
-
+        par.strip.text=list(cex=0.6), main='Regression Coeff 21 Modules at baseline', xlab='Model estimated Average RD Score')
 
 
