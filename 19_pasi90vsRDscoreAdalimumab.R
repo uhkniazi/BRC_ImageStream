@@ -1,6 +1,6 @@
 # Name: 19_pasi90vsRDscoreAdalimumab.R
 # Auth: umar.niazi@kcl.ac.uk
-# Date: 30/08/2018
+# Date: 21/01/2019
 # Desc: import clean and model for the differences in rd.score for pasi90 trus/false groups
 
 ############################## data import and cleaning steps
@@ -50,6 +50,12 @@ dfData = dfData[dfData$Transcription.factor == 'NF-kB', ]
 dfData = droplevels.data.frame(dfData)
 dim(dfData)
 
+## drop some of the stimulations as decided 
+levels(dfData$Stimulation)
+dfData = dfData[!(dfData$Stimulation %in% c('IL-17', "TNF-alpha + IL-17")), ]
+dfData = droplevels.data.frame(dfData)
+dim(dfData)
+
 
 ####### apply the cutoffs
 ## cell count variable check this 
@@ -72,7 +78,7 @@ nlevels(fModule)
 # block is a combination of modules and time
 fBlock = factor(fModule:dfData$Visit..Week.)
 nlevels(fBlock)
-## 160 blocks
+## 80 blocks
 ## drop modules with average RD score < 0.3
 nlevels(fModule)
 i = tapply(dfData$Rd.score, fModule, mean)
@@ -101,7 +107,7 @@ xtabs(~ dfData$fBlock + dfData$Transcription.factor)
 rm(fModule)
 rm(fBlock)
 
-write.csv(dfData, file='dataExternal/healthyData/pasi90VsRdScoreAdalimumab_onlyNFKB.csv', row.names = F)
+write.csv(dfData, file='dataExternal/healthyData/pasi90VsRdScoreAdalimumab_onlyNFKB_noIL17.csv', row.names = F)
 
 ########################### data modelling steps
 
@@ -342,7 +348,7 @@ l = lapply(ldfMap, function(x) {
 
 dfResults = do.call(rbind, l)
 dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
-write.csv(dfResults, file='Results/pasi90vsRdScoreAdalimumab_onlyNFKB.csv', row.names = F)
+write.csv(dfResults, file='Results/pasi90vsRdScoreAdalimumab_onlyNFKB_noIL17.csv', row.names = F)
 
 ########################## continue from here to make plots of coefficients
 ## make the plots for the raw data and coef
@@ -361,7 +367,7 @@ colnames(d) = c(colnames(d)[1:5], c('cells', 'stimulation', 'time', 'PASI90'))
 d$time = factor(d$time, levels=c('Baseline', 'Week 1', 'Week 4', 'Week 12'))
 
 dotplot(PASI90 ~ m+s1+s2 | cells:stimulation:time, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
-        par.strip.text=list(cex=0.5), main='168 Fitted Coefficients for Rd.score ~ PASI90', xlab='')
+        par.strip.text=list(cex=0.5), main='48 Blocks with Fitted Coefficients for Rd.score ~ PASI90', xlab='')
 
 
 ## example of xyplot with confidence interval bars
