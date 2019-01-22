@@ -1,7 +1,7 @@
 # Name: 21_pasi75vsRDscoreAdalimumab.R
 # Auth: umar.niazi@kcl.ac.uk
-# Date: 30/08/2018
-# Desc: import clean and model for the differences in rd.score for pasi75 trus/false groups
+# Date: 22/01/2019
+# Desc: import clean and model for the differences in rd.score for pasi75 true/false groups
 
 ## use the cleaned data from the pasi90 script
 
@@ -17,7 +17,7 @@ gammaShRaFromModeSD = function( mode , sd ) {
   return( list( shape=shape , rate=rate ) )
 }
 
-dfData = read.csv('dataExternal/healthyData/pasi90VsRdScoreAdalimumab_onlyNFKB.csv', header=T)
+dfData = read.csv('dataExternal/healthyData/pasi90VsRdScoreAdalimumab_onlyNFKB_noIL17.csv', header=T)
 
 dfData$Visit..Week. = factor(dfData$Visit..Week., levels=c('Baseline',
                                                            'Week 1', 'Week 4',
@@ -244,7 +244,7 @@ l = lapply(ldfMap, function(x) {
 
 dfResults = do.call(rbind, l)
 dfResults$p.adj = format(p.adjust(dfResults$pvalue, method='bonf'), digi=3)
-write.csv(dfResults, file='Results/PASI75vsRdScoreAdalimumab_onlyNFKB.csv', row.names = F)
+write.csv(dfResults, file='Results/PASI75vsRdScoreAdalimumab_onlyNFKB_noIL17.csv', row.names = F)
 
 ########################## continue from here to make plots of coefficients
 ## make the plots for the raw data and coef
@@ -263,7 +263,7 @@ colnames(d) = c(colnames(d)[1:5], c('cells', 'stimulation', 'time', 'PASI75'))
 d$time = factor(d$time, levels=c('Baseline', 'Week 1', 'Week 4', 'Week 12'))
 
 dotplot(PASI75 ~ m+s1+s2 | cells:stimulation:time, data=d, panel=llines(d$s1, d$s2), cex=0.6, pch=20,
-        par.strip.text=list(cex=0.5), main='168 Fitted Coefficients for Rd.score ~ PASI75', xlab='')
+        par.strip.text=list(cex=0.5), main='48 Blocks with Fitted Coefficients for Rd.score ~ PASI75', xlab='')
 
 
 ## example of xyplot with confidence interval bars
